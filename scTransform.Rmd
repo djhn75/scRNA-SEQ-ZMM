@@ -1,0 +1,176 @@
+---
+title: "scTransform on Tracing data"
+author: "Lukas"
+output: html_notebook
+date: "2019-02-08"
+---
+
+## sctransform
+(https://github.com/ChristophH/sctransform)
+
+  Using sctransform to correct batch effects of scRNA-seq and apply a variance stabilizing transformation. Cells with similar nUMI range have different molecular content, leading to normalization biases for equally expressed genes. 
+  
+  sctransform models the expression of each gene as a negative binominal variable with a mean that depends on a latent factor. This latent factor can be used to model differences in the sequencing depth between cells and as a dependent variable for a regression model. scTransform first fits a model parameter per gene and calculates the relationship between the parameter and the mean, to fit the parameter for all genes. Using the fitted parameter, each UMI count is transformed in a Pearson residual (number of standard deviations as the observed count is away from the expected mean). If the model accurately describes the mean-variance relationship and the dependency of mean and latent factors, then the result should have mean zero and a stable variance accross the range of expression. (Adopted from Variance Stabilizing Transformation Vignette)
+  
+### Load data and packages
+
+```{r}
+library(Seurat)
+library(ggplot2)
+library(sctransform)
+library(Matrix)
+library(ggpmisc)
+load("/media/Storage/CompleteTracer_R/With FastqCombined/Tracing.Rds")
+dgc.Tracing <- as.matrix(Tracing@raw.data)
+
+```
+
+### Inspect data
+
+```{r}
+gene_attr <- data.frame(mean = rowMeans(dgc.Tracing), 
+                        detection_rate = rowMeans(dgc.Tracing > 0),
+                        var = apply(dgc.Tracing, 1, var))
+gene_attr$log_mean <- log10(gene_attr$mean)
+gene_attr$log_var <- log10(gene_attr$var)
+rownames(gene_attr) <- rownames(dgc.Tracing)
+cell_attr <- data.frame(n_umi = colSums(dgc.Tracing),
+                        n_gene = colSums(dgc.Tracing > 0))
+rownames(cell_attr) <- colnames(dgc.Tracing)
+```
+```{r}
+ggplot(gene_attr, aes(log_mean, log_var)) + 
+  geom_point(alpha=0.3, shape=16) + 
+  geom_density_2d(size = 0.3) +
+  geom_abline(intercept = 0, slope = 1, color='red')
+```
+
+  For genes that have a mean UMI count > 1 show overdispersion compared to Poisson, which assumes that variance and mean UMI are roughly equal. 
+  This is in line with the vignette
+  
+```{r}
+# add the expected detection rate under Poisson model
+x = seq(from = -4, to = 2, length.out = 1000)
+poisson_model <- data.frame(log_mean = x, detection_rate = 1 - dpois(0, lambda = 10^x))
+ggplot(gene_attr, aes(log_mean, detection_rate)) + 
+  geom_point(alpha=0.3, shape=16) + 
+  geom_line(data=poisson_model, color='red') +
+  theme_gray(base_size = 8)
+```
+  The detection rate (defined as an ideal Poisson distribution) is lower than expected in the medium - high expression range. Towards the end the detection rate is very close to 1, suggesting that zero-inflation is a result of overdispersion rather than independet systematic biases
+  (Comment: It actually looks a bit different to the tutorial)
+  
+```{r}
+ggplot(cell_attr, aes(n_umi, n_gene)) + 
+  geom_point(alpha=0.3, shape=16) + 
+  geom_density_2d(size = 0.3)+
+  geom_smooth(method = lm, color = "red", formula = y~x)+
+  stat_poly_eq(formula = y~x,
+               eq.with.lhs = "italic(hat(y))~`=`~",
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "*plain(\",\")~")), 
+               parse = TRUE, color = "red")
+```
+Correlation of Genes and UMI is not correct for high UMI cells
+
+## Estimate model parameters and transform data
+
+  Here log10 of avergae UMI counts per gene is used as a latent variable for sequencing depth for each cell. 
+  
+```{r}
+options(mc.cores = 12)
+set.seed(43)
+vst_out <- sctransform::vst(dgc.Tracing, latent_var = c("log_umi_per_gene"), return_gene_attr = T, return_cell_attr = T, show_progress = F)
+```
+
+```{r}
+sctransform::plot_model_pars(vst_out)
+```
+```{r}
+sctransform::plot_model(vst_out, dgc.Tracing, goi = c("Malat1", "EGFP", "Vtn"), plot_residual = TRUE)
+```
+```{r}
+sctransform::plot_model(vst_out, dgc.Tracing, c('EGFP'), plot_residual = TRUE, show_nr = TRUE, arrange_vertical = FALSE)
+```
+
+```{r}
+ggplot(vst_out$gene_attr, aes(residual_mean)) + geom_histogram(binwidth=0.01)
+```
+```{r}
+ggplot(vst_out$gene_attr, aes(residual_variance)) + geom_histogram(binwidth=0.1) + geom_vline(xintercept=1, color='red')
+```
+After transformation the mean of the genes is close to zero, and most genes have a variance around one. This suggests that overall the regularized negative binomial model is a suitable model that describes the effect of sequencing depth on UMI counts. Further, after transformation there is no relationship between gene mean and variance, as the next plot shows.
+
+```{r}
+ggplot(vst_out$gene_attr, aes(log10(mean), residual_variance)) + geom_point(alpha=0.3, shape=16) +
+  geom_density_2d(size = 0.3)
+```
+
+```{r}
+head(round(vst_out$gene_attr[order(-vst_out$gene_attr$residual_variance), ], 2), 22)
+```
+
+## Correct for batch (Vignette by Christoph Hafemeister)
+
+### Add meta-data to matrix
+
+```{r}
+cluster <- Tracing@meta.data$res.0.6
+Timepoint <- Tracing@meta.data$orig.ident
+cell_attr$umi_per_gene <- cell_attr$n_umi / cell_attr$n_gene
+cell_attr$log_umi_per_gene <- log10(cell_attr$umi_per_gene)
+cell_attr <- data.frame(cell_attr, cluster, Timepoint)
+head(cell_attr, 15)
+```
+
+  Apply vst
+  
+```{r}
+set.seed(42)
+vst_out <- sctransform::vst(dgc.Tracing, cell_attr = cell_attr, latent_var = c('log_umi_per_gene'), bin_size = 128, show_progress = FALSE)
+```
+  Perform PCA reduction and keep top 35 Dimensions
+```{r}
+pca <- irlba::prcomp_irlba(t(vst_out$y), n = 35)
+tsne <- Rtsne::Rtsne(scale(pca$x), pca = FALSE)
+cell_attr$tSNE1 <- tsne$Y[, 1]
+cell_attr$tSNE2 <- tsne$Y[, 2]
+
+head(cell_attr, 10)
+```
+  Plot the batch label and the original clustering.
+
+```{r}
+ggplot(cell_attr, aes(tSNE1, tSNE2, color = Timepoint)) + geom_point(alpha=0.5, shape=16) + 
+  theme(legend.position="bottom")
+ggplot(cell_attr, aes(tSNE1, tSNE2, color = cluster)) + geom_point(alpha=0.5, shape=16) +
+  theme(legend.position="bottom")
+```
+  Rerun the vst command but use Timepoint as batch variable. This changes the regression model specification, adding batch indicator variable and its interaction with the regression coefficients. This effectively fits the regression model per batch, but keeps a single theta variable (overdispersion parameter) per gene. Parameter regularization is performed per batch.
+
+
+```{r}
+set.seed(42)
+vst_out2 <- sctransform::vst(dgc.Tracing, cell_attr = cell_attr, latent_var = 'log_umi_per_gene', batch_var = 'Timepoint', bin_size = 128, show_progress = FALSE)
+```
+
+```{r}
+GFP.new.matrix <- vst_out2$y["EGFP", ]
+GFP.old <- Tracing@data["EGFP", ]
+
+# check if rownames match
+for(i in 1:length(GFP.new.matrix)){
+  if(names(GFP.new.matrix)[i] == names(GFP.old)[i]){}
+  else {print(i);print(GFP.old[i]);stop("unequal")}
+}
+
+test.frame <- data.frame(GFP.new.matrix, GFP.old, cluster, Timepoint)
+Tam.neg.old <- quantile(test.frame[which(test.frame$Timepoint == "Tam-Control"), "GFP.old"], 0.99)
+Tam.neg.new <- quantile(test.frame[which(test.frame$Timepoint == "Tam-Control"), "GFP.new.matrix"], 0.99)
+ggplot(test.frame, aes(x=GFP.new.matrix, y=GFP.old))+
+  geom_point(alpha = 0.3)+
+  geom_hline(yintercept = Tam.neg.old)+
+  geom_vline(xintercept = Tam.neg.new)+
+  facet_wrap(~Timepoint, nrow = 2)
+
+```
+
