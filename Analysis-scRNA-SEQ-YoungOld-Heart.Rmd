@@ -1,0 +1,313 @@
+---
+title: "R Notebook"
+author: David John
+output: html_notebook
+---
+
+#1.) Import Data
+## 1.1) Import packages
+```{r message=FALSE}
+#load libraries
+library(dplyr)
+library(ggpubr)
+
+require(scales)
+
+#import scImpute
+#install.packages("devtools")
+#library(devtools)
+#install_github("Vivianstats/scImpute")
+library(scImpute)
+
+source("/home/david/PowerFolders/Arbeit/2018/Conferences/Keystone2019/10Import.R")
+```
+---
+
+Import Ref Genome and Gene Biotypes
+```{r}
+#only lncRNAs
+library(refGenome)
+setwd("/media/ATLAS_Genomes_Annotations/mouse/GRCm38");
+ens <- ensemblGenome()
+read.gtf(ens, "Mus_musculus.GRCm38.81.gtf")
+my_gene <- getGenePositions(ens);rownames(my_gene)<-my_gene$gene_id
+biotypes<-data.frame(geneName=my_gene$gene_name, biotype=my_gene$gene_biotype )
+```
+
+
+
+## 1.2) Load Data and assign condition
+```{r Import, message=FALSE}
+###############################################################
+### 1.)           Import and filter Data                   ####
+###############################################################
+setwd("/home/david/PowerFolders/Arbeit/2018/Conferences/Keystone2019/rData/")
+
+
+#Static Parameters
+Path.WholeHeart <- c("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Young1",
+                "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Young2",
+                "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Young3",
+                "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Old1",
+                "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Old2",
+                "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Old3")
+SAMPLENAMES_WholeHeart <- c("Young1","Young2","Young3","Old1","Old2","Old3")
+
+
+#NUCLEAR_MATRIX <- read.table("/media/ATLAS_NGS_storage/Stefanie/singleCell_Berlin/mouse-heart-ercc-tpm.txt/mouse-heart-ercc-tpm.txt")
+WholeHeart <- combineSeuratObjectsCCA(pathways = Path.WholeHeart, ids = SAMPLENAMES_WholeHeart)
+
+mito.genes <- grep(pattern = "^mt-", x = rownames(x = WholeHeart@data), value = TRUE)
+percent.mito <- Matrix::colSums(WholeHeart@raw.data[mito.genes, ])/Matrix::colSums(WholeHeart@raw.data)
+WholeHeart <- AddMetaData(object = WholeHeart, metadata = percent.mito, col.name = "percent.mito")
+WholeHeart <- AddMetaData(object = WholeHeart, metadata = WholeHeart@ident, col.name = "orig.ident")
+
+condition <- c()
+for (barcode in colnames(WholeHeart@data)){
+  if (startsWith(barcode,"Old")) { condition<-c(condition,"Old")}
+  else if (startsWith(barcode,"Young")) { condition<-c(condition,"Young")}
+  else {print("unexpected condition")}
+}
+names(condition)<-WholeHeart@cell.names
+WholeHeart <- AddMetaData(object = WholeHeart, metadata = condition, col.name = "condition");rm(condition)
+
+WholeHeart <- FilterCells(object = WholeHeart, subset.names = c("nGene", "percent.mito"), low.thresholds = c(1000, -Inf), high.thresholds = c(Inf, 0.2))
+
+```
+
+
+## 1.2) Impute the dataset with scImpute
+Run only once, as the files are stored on the Hard drive
+```{r message=FALSE, warning=FALSE}
+# library(scImpute)
+# library(Seurat)
+# 
+# imputeData <- function(pathway,id, cluster=12, ncores=20, drop_thre=0.5){
+#   path.Matrix<-paste(pathway,"Matrix.csv",sep="/")
+#   path.Imputed.Matrix <- paste(pathway, "scImpute", id, sep="/")
+#   Ten_X <- Read10X(pathway)
+#   write.csv(as.data.frame(as.matrix(Ten_X)), file = path.Matrix)
+#   scimpute(count_path = path.Matrix, 
+#            out_dir = path.Imputed.Matrix, Kcluster = cluster, ncores=ncores, drop_thre = drop_thre)
+# }
+# 
+# imputeData("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Young1", "young1")
+# imputeData("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Young2", "young2")
+# imputeData("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Young3", "young3")
+# 
+# imputeData("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Old1", "old1")
+# imputeData("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Old2", "old2")
+# imputeData("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Old3", "old3")
+
+```
+
+## 1.3) Load imputed dataset
+```{r LoadImpute, message=FALSE}
+#SAMPLENAMES_WholeHeart <- c("young1","young2","young3","old1","old2","old3")
+#WholeHeart.Imputed <- combineScImputedSeuratObjectsCCA(pathways = Path.WholeHeart, ids = SAMPLENAMES_WholeHeart)
+#saveRDS(WholeHeart.Imputed, file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/WholeHeart.Imputed.rds")
+WholeHeart.Imputed<-readRDS("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/WholeHeart.Imputed.rds")
+
+mito.genes <- grep(pattern = "^mt-", x = rownames(x = WholeHeart.Imputed@data), value = TRUE)
+percent.mito <- Matrix::colSums(WholeHeart.Imputed@raw.data[mito.genes, ])/Matrix::colSums(WholeHeart.Imputed@raw.data)
+WholeHeart.Imputed <- AddMetaData(object = WholeHeart.Imputed, metadata = percent.mito, col.name = "percent.mito")
+WholeHeart.Imputed <- AddMetaData(object = WholeHeart.Imputed, metadata = WholeHeart.Imputed@ident, col.name = "orig.ident")
+
+condition <- c()
+for (barcode in colnames(WholeHeart.Imputed@data)){
+  if (startsWith(barcode,"old")) { condition<-c(condition,"Old")}
+  else if (startsWith(barcode,"young")) { condition<-c(condition,"Young")}
+  else {print("unexpected condition")}
+}
+names(condition)<-WholeHeart.Imputed@cell.names
+WholeHeart.Imputed <- AddMetaData(object = WholeHeart.Imputed, metadata = condition, col.name = "condition");rm(condition)
+
+WholeHeart.Imputed <- FilterCells(object = WholeHeart.Imputed, subset.names = c("nGene", "percent.mito"), low.thresholds = c(1000, -Inf), high.thresholds = c(Inf, 0.2))
+
+```
+
+# 2.) Quality Control
+## 2.1) Number of UMI's and mT content
+```{r QCStats}
+par(mfrow = c(2, 2))
+GenePlot(object = WholeHeart, gene1 = "nUMI", gene2 = "percent.mito",)
+GenePlot(object = WholeHeart, gene1 = "nUMI", gene2 = "nGene")
+GenePlot(object = WholeHeart.Imputed, gene1 = "nUMI", gene2 = "percent.mito")
+GenePlot(object = WholeHeart.Imputed, gene1 = "nUMI", gene2 = "nGene")
+
+```
+
+##2.2) Run clustering
+```{r Clustering}
+WholeHeart <- RunPCA(object = WholeHeart, pc.genes = WholeHeart@var.genes, do.print = TRUE, pcs.print = 1:5, genes.print = 5)
+WholeHeart<-ProjectPCA(object = WholeHeart, do.print = FALSE)
+PCHeatmap(object = WholeHeart, pc.use = 1:12, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+WholeHeart <- FindClusters(object = WholeHeart, reduction.type = "pca", dims.use = 1:5, resolution = 0.6, print.output = 0, save.SNN = TRUE)
+PrintFindClustersParams(object = WholeHeart)
+WholeHeart <- RunTSNE(object = WholeHeart, dims.use = 1:5, do.fast = TRUE)
+
+WholeHeart.Imputed <- RunPCA(object = WholeHeart.Imputed, pc.genes = WholeHeart.Imputed@var.genes, do.print = TRUE, pcs.print = 1:5, genes.print = 5)
+WholeHeart.Imputed<-ProjectPCA(object = WholeHeart.Imputed, do.print = FALSE)
+PCHeatmap(object = WholeHeart.Imputed, pc.use = 1:12, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+WholeHeart.Imputed <- FindClusters(object = WholeHeart.Imputed, reduction.type = "pca", dims.use = 1:5, resolution = 0.6, print.output = 0, save.SNN = TRUE)
+PrintFindClustersParams(object = WholeHeart.Imputed)
+WholeHeart.Imputed <- RunTSNE(object = WholeHeart.Imputed, dims.use = 1:5, do.fast = TRUE)
+```
+
+# 3.) Results
+## 3.1.) Clusters
+### 3.1.1.) TSNE and FeaturePlots
+```{r TSNE}
+TSNEPlot(object = WholeHeart, label=T, pt.size = 2.1, do.return=TRUE,plot.title="Not Imputed")
+TSNEPlot(object = WholeHeart.Imputed, label=T, pt.size = 2.1, do.return=TRUE, plot.title="scImpute")
+rm(a)
+a<-FeaturePlot(object = WholeHeart, features.plot = c("Cdh5","Pecam1"), cols.use = c("grey", "blue"), pt.size = 2, do.return=TRUE)
+a<-ggarrange(a$Cdh5,a$Pecam1);annotate_figure(a, top = text_grob("Raw", color = "red", face = "bold", size = 16),)
+
+a<-FeaturePlot(object = WholeHeart.Imputed, features.plot = c("Cdh5","Pecam1"), cols.use = c("grey", "blue"), pt.size = 2, do.return=TRUE, vector.friendly = TRUE)
+a<-ggarrange(a$Cdh5,a$Pecam1);annotate_figure(a, top = text_grob("Imputed", color = "red", face = "bold", size = 16),)
+```
+
+
+
+
+### 3.1.2.) Cluster Specific Markers Markers
+```{r message=FALSE, warning=FALSE}
+WholeHeart.Markers <- FindAllMarkers(object = WholeHeart, only.pos = TRUE, min.pct = 0.25, thresh.use = 0.25, min.diff.pct = 0.25)
+WholeHeart.Imputed.Markers <- FindAllMarkers(object = WholeHeart.Imputed, only.pos = TRUE, min.pct = 0.25, min.diff.pct = 0.25)
+
+```
+
+##### Top 10 Markers (Raw)
+```{r}
+top.Markers.WholeHeart <- WholeHeart.Markers %>% group_by(cluster) %>% top_n(10, avg_logFC)
+top.Markers.WholeHeart
+```
+
+
+##### Top 10 Markers (Imputed)
+######The clusters seem to be much more stringent and also lower expressed genes are now present at higher levels and more cluster specific
+```{r}
+top.Markers.WholeHeart.Imputed <- WholeHeart.Imputed.Markers %>% group_by(cluster) %>% top_n(10, avg_logFC)
+top.Markers.WholeHeart.Imputed
+```
+
+### 3.1.3.) FeaturePlots of Cluster Specific Markers 
+##### Raw
+
+```{r}
+a<-FeaturePlot(object = WholeHeart, features.plot = c("Fabp4","Vwf","Cd74","Myh6","Pecam1","Cdh5", "Lyz2", "Fbn1"),do.return=T, cols.use = c("grey", "blue"), reduction.use = "tsne", vector.friendly = TRUE, pt.size = 1.5)
+annotate_figure(ggarrange(a$Fabp4,a$Vwf,a$Cd74,a$Myh6), top = text_grob("Raw", color = "red", face = "bold", size = 16),)
+annotate_figure(ggarrange(a$Pecam1,a$Cdh5,a$Lyz2,a$Fbn1), top = text_grob("Raw", color = "red", face = "bold", size = 16),)
+
+#VlnPlot(object = WholeHeart.Imputed, features.plot = c("Myh6","Cdh2","Ttn","Fbn1","Lyz2","Pln","Cdh5","Pecam1","Wdr17","Cyyr1","Bicc1","Pck1","F13a1"), group.by = "res.0.6")
+#a<-FeaturePlot(object = WholeHeart.Imputed, features.plot = top.Markers.WholeHeart$gene,do.return=T, cols.use = c("grey", "blue"), reduction.use = "tsne", vector.friendly = TRUE)
+
+```
+##### Imputed
+
+```{r}
+a<-FeaturePlot(object = WholeHeart.Imputed, features.plot = c("Fabp4","Vwf","Cd74","Myh6","Pecam1","Cdh5", "Lyz2", "Fbn1"),do.return=T, cols.use = c("grey", "blue"), reduction.use = "tsne", vector.friendly = TRUE, , pt.size = 1.5)
+annotate_figure(ggarrange(a$Fabp4,a$Vwf,a$Myh6,a$Pecam1), top = text_grob("Imputed", color = "red", face = "bold", size = 16),)
+annotate_figure(ggarrange(a$Pecam1,a$Cdh5,a$Lyz2,a$Fbn1), top = text_grob("Imputed", color = "red", face = "bold", size = 16),)
+```
+
+### 3.1.4.) ViolinPlots of Cluster Specific Markers
+#### Raw
+```{r}
+a<-VlnPlot(object = WholeHeart, features.plot = c("Fabp4","Vwf","Cd74","Myh6","Pecam1","Cdh5", "Lyz2", "Fbn1"),return.plotlist = TRUE, do.return=TRUE)
+annotate_figure(ggarrange(a[[1]],a[[2]],a[[3]],a[[4]]), top = text_grob("Raw", color = "red", face = "bold", size = 16))
+annotate_figure(ggarrange(a[[5]],a[[6]],a[[7]],a[[8]]), top = text_grob("Raw", color = "red", face = "bold", size = 16))
+
+```
+
+####Imputed
+```{r fig.width=15}
+a<-VlnPlot(object = WholeHeart.Imputed, features.plot = c("Fabp4","Vwf","Cd74","Myh6","Pecam1","Cdh5", "Lyz2", "Fbn1"),return.plotlist = TRUE, do.return=TRUE)
+annotate_figure(ggarrange(a[[1]],a[[2]],a[[3]],a[[4]]), top = text_grob("Impute", color = "red", face = "bold", size = 16),)
+annotate_figure(ggarrange(a[[5]],a[[6]],a[[7]],a[[8]]), top = text_grob("Impute", color = "red", face = "bold", size = 16),)
+
+
+```
+
+
+## 3.2.) Subset of Specific Cell Types
+####combine cluster with age information
+#####Raw
+
+```{r}
+cluster_condition <- c()
+for (i in 1:length(WholeHeart@data[1,])){
+  add<-paste(WholeHeart@meta.data$res.0.6[i],"-",WholeHeart@meta.data$condition[i],sep = "")
+  cluster_condition<-c(cluster_condition,add)
+}
+names(cluster_condition)<-WholeHeart@cell.names
+WholeHeart <- AddMetaData(object = WholeHeart, metadata = cluster_condition, col.name = "cluster_condition")
+rm(cluster_condition)
+```
+
+#####Imputed
+```{r}
+cluster_condition <- c()
+for (i in 1:length(WholeHeart.Imputed@data[1,])){
+  add<-paste(WholeHeart.Imputed@meta.data$res.0.6[i],"-",WholeHeart.Imputed@meta.data$condition[i],sep = "")
+  cluster_condition<-c(cluster_condition,add)
+}
+names(cluster_condition)<-WholeHeart.Imputed@cell.names
+WholeHeart.Imputed <- AddMetaData(object = WholeHeart.Imputed, metadata = cluster_condition, col.name = "cluster_condition")
+rm(cluster_condition)
+```
+
+
+### 3.2.1.) Endthelial Cells
+##### Raw
+```{r}
+top.Markers.WholeHeart
+```
+
+##### Imputed
+```{r}
+
+```
+
+
+---
+### 3.2.1.) Cardiomyocytes
+##### Raw
+```{r}
+
+```
+---
+##### Imputed
+```{r}
+
+```
+
+---
+### 3.2.1.) Fibroblats
+##### Raw
+```{r}
+
+```
+---
+##### Imputed
+```{r}
+
+```
+
+
+## 3.2.) Examine differentially expressed lncRNAs Young vs Old for different Cell Types
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
