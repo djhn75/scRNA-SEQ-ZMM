@@ -1,7 +1,9 @@
 ---
 title: "R Notebook"
-author: David John
-output: html_notebook
+author: "David John"
+output:
+  html_document:
+    df_print: paged
 ---
 
 #1.) Import Data
@@ -18,12 +20,12 @@ require(scales)
 #library(devtools)
 #install_github("Vivianstats/scImpute")
 library(scImpute)
-
-source("/home/david/PowerFolders/Arbeit/2018/Conferences/Keystone2019/10Import.R")
+library(Seurat)
+source("Import10X-HelperFunctions.R")
 ```
 ---
 
-Import Ref Genome and Gene Biotypes
+##Import Ref Genome and Gene Biotypes
 ```{r}
 #only lncRNAs
 library(refGenome)
@@ -132,9 +134,8 @@ WholeHeart.Imputed <- FilterCells(object = WholeHeart.Imputed, subset.names = c(
 par(mfrow = c(2, 2))
 GenePlot(object = WholeHeart, gene1 = "nUMI", gene2 = "percent.mito",)
 GenePlot(object = WholeHeart, gene1 = "nUMI", gene2 = "nGene")
-GenePlot(object = WholeHeart.Imputed, gene1 = "nUMI", gene2 = "percent.mito")
-GenePlot(object = WholeHeart.Imputed, gene1 = "nUMI", gene2 = "nGene")
-
+GenePlot(object = WholeHeart.Imputed, gene1 = "nUMI", gene2 = "percent.mito", sub="imputed")
+GenePlot(object = WholeHeart.Imputed, gene1 = "nUMI", gene2 = "nGene", sub="imputed")
 ```
 
 ##2.2) Run clustering
@@ -160,6 +161,7 @@ WholeHeart.Imputed <- RunTSNE(object = WholeHeart.Imputed, dims.use = 1:5, do.fa
 ```{r TSNE}
 TSNEPlot(object = WholeHeart, label=T, pt.size = 2.1, do.return=TRUE,plot.title="Not Imputed")
 TSNEPlot(object = WholeHeart.Imputed, label=T, pt.size = 2.1, do.return=TRUE, plot.title="scImpute")
+DimPlot(object = WholeHeart.Imputed, reduction = "cca")
 rm(a)
 a<-FeaturePlot(object = WholeHeart, features.plot = c("Cdh5","Pecam1"), cols.use = c("grey", "blue"), pt.size = 2, do.return=TRUE)
 a<-ggarrange(a$Cdh5,a$Pecam1);annotate_figure(a, top = text_grob("Raw", color = "red", face = "bold", size = 16),)
@@ -229,6 +231,34 @@ annotate_figure(ggarrange(a[[5]],a[[6]],a[[7]],a[[8]]), top = text_grob("Impute"
 
 
 ```
+Cluster belonging to which cell Type:
+Endothelial Cells: 5,6,7,12
+
+
+
+
+### 3.1.5 Age regulated lncRNAS
+#RAW
+```{r}
+WholeHeart <- SetAllIdent(object = WholeHeart, id = "condition")
+WholeHeart.YoungvsOld <- FindMarkers(object = WholeHeart, ident.1 = c("Young"),ident.2 = c("Old"), only.pos = FALSE, min.pct = 0, thresh.use = 0.25)
+df1<-data.frame(geneName=my_gene$gene_name,biotype=my_gene$gene_biotype)
+df2<-data.frame(geneName=rownames(WholeHeart.YoungvsOld),WholeHeart.YoungvsOld)
+df<-merge(df1,df2,by = "geneName");df_linc<-df[df$biotype!="protein_coding",]
+WholeHeart.YoungUp<-as.character(df_linc[df_linc$avg_logFC>0  & df_linc$p_val_adj<0.05,"geneName"]);cat(CM_youngUp,sep = ",")
+WholeHeart.OldUp<-as.character(df_linc[df_linc$avg_logFC<0  & df_linc$p_val_adj<0.05,"geneName"]);cat(CM_OldUp,sep = ".")
+
+WholeHeart.YoungUp<-as.character(df_linc[df_linc$avg_logFC>0,"geneName"]);cat(CM_youngUp,sep = "\n")
+WholeHeart.OldUp<-as.character(df_linc[df_linc$avg_logFC<0,"geneName"]);cat(CM_OldUp,sep = "\n")
+
+```
+---
+###Save and reload everithing here
+```{r}
+save.image("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/NewAnalysis22.11.18/ImputedDataset.David.28.02.19.RData")
+load("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/NewAnalysis22.11.18/ImputedDataset.David.28.02.19.RData")
+```
+---
 
 
 ## 3.2.) Subset of Specific Cell Types
@@ -242,7 +272,7 @@ for (i in 1:length(WholeHeart@data[1,])){
   cluster_condition<-c(cluster_condition,add)
 }
 names(cluster_condition)<-WholeHeart@cell.names
-WholeHeart <- AddMetaData(object = WholeHeart, metadata = cluster_condition, col.name = "cluster_condition")
+WholeHeart@meta.data$cluster_condition <- cluster_condition
 rm(cluster_condition)
 ```
 
@@ -254,7 +284,7 @@ for (i in 1:length(WholeHeart.Imputed@data[1,])){
   cluster_condition<-c(cluster_condition,add)
 }
 names(cluster_condition)<-WholeHeart.Imputed@cell.names
-WholeHeart.Imputed <- AddMetaData(object = WholeHeart.Imputed, metadata = cluster_condition, col.name = "cluster_condition")
+WholeHeart.Imputed@meta.data$cluster_condition <- cluster_condition
 rm(cluster_condition)
 ```
 

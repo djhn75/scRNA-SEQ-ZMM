@@ -6,7 +6,7 @@ library(Seurat)
 #' @param pathways A vector of pathways to the cellrancer count output folder (contains barcodes.tsv, genes.tsv, matrix.mtx)
 #' @param ids Vector of strings that are assigned to the concordant cells
 #' @return Merged seurat object
-Importer <- function(pathway,id, TenX=TRUE) {
+Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performVariableGeneDetection=TRUE, performScaling = TRUE) {
   if (TenX) {
     Matrix <- Read10X(pathway)
   }  else{
@@ -15,9 +15,16 @@ Importer <- function(pathway,id, TenX=TRUE) {
   
   seuratObject =CreateSeuratObject(raw.data = Matrix, min.cells= 3, min.genes = 200)
   seuratObject<-RenameCells(object = seuratObject, add.cell.id = id)
-  seuratObject<-NormalizeData(object = seuratObject)
-  seuratObject<-ScaleData(object = seuratObject)
-  seuratObject<-FindVariableGenes(object = seuratObject, do.plot = FALSE)
+  if (performNormalisation==TRUE) {
+    seuratObject<-NormalizeData(object = seuratObject)
+  }
+  if(performVariableGeneDetection){
+    seuratObject<-FindVariableGenes(object = seuratObject, do.plot = FALSE)
+  }
+  if(performScaling){
+    seuratObject<-ScaleData(object = seuratObject)
+  }
+  
   cat("Imported ", length(seuratObject@ident), " cells from ", pathway, "with ID ", id, "\n")
   return(seuratObject)
 }
@@ -81,16 +88,49 @@ library(Seurat)
 #' @author David John
 #' @param pathways Pathway to the cellrancer count output folder (contains barcodes.tsv, genes.tsv, matrix.mtx)
 #' @param ids String that are assigned to the output matrix
-imputeData <- function(pathway,id, cluster=12, ncores=20, drop_thre=0.5){
+imputeData <- function(pathways,ids, cluster=12, ncores=20, drop_thre=0.5){
   for (i in 1:length(pathways)) {
+    cat("Start imputing Sample ", pathways[i], "\n")
     path.Matrix<-paste(pathways[i],"Matrix.csv",sep="/")
     path.Imputed.Matrix <- paste(pathways[i], "scImpute", ids[i], sep="/")
-    Ten_X <- Read10X(pathways[i])
-    write.csv(as.data.frame(as.matrix(Ten_X)), file = path.Matrix)
-    scimpute(count_path = path.Matrix,
-           out_dir = path.Imputed.Matrix, Kcluster = cluster, ncores=ncores, drop_thre = drop_thre)
-    cat("Wrote imputed Martix to ", path.Imputed.Matrix)
+    Ten_X <- Importer(pathways[i], ids[i],performNormalisation = FALSE, performScaling = FALSE, performVariableGeneDetection = FALSE)
+    Ten_X <- FilterDeadCells(seuratObject = Ten_X)
+    cat("Write temporary Martix to ", path.Matrix, "\n")
+    write.csv(as.data.frame(as.matrix(Ten_X@data)), file = path.Matrix)
+    cat("Start imputation for ", path.Matrix)
+    scimpute(count_path = path.Matrix, out_dir = path.Imputed.Matrix, Kcluster = cluster, ncores=ncores, drop_thre = drop_thre)
+    cat("Wrote imputed Martix to ", path.Imputed.Matrix, "\n")
   }
+}
+
+
+#' 
+#' @author David John
+#' @param seuratObject 
+#' @return filtered seurat object
+FilterDeadCells <- function(seuratObject, species = "human"){
+  # The number of features and UMIs (nFeature_RNA and nCount_RNA) are automatically calculated for every object by Seurat.
+  # For non-UMI data, nCount_RNA represents the sum of the non-normalized values within a cell
+  # We calculate the percentage of mitochondrial features here and store it in object metadata as `percent.mito`.
+  # We use raw count data since this represents non-transformed and non-log-normalized counts
+  # The % of UMI mapping to MT-features is a common scRNA-seq QC metric.
+  cat("Filter Dead Cells \n")
+  if (species == "human") {
+    mito.features <- grep(pattern = "^MT-", x = rownames(x = seuratObject), value = TRUE)
+  }
+  else if (species == "mouse") {
+    mito.features <- grep(pattern = "^mt-", x = rownames(x = seuratObject), value = TRUE)
+  } 
+  else {
+    cat("species must be mouse or human")
+  }
+  mito.genes <- grep(pattern = "^mt-", x = rownames(x = seuratObject@data), value = TRUE)
+  percent.mito <- Matrix::colSums(seuratObject@raw.data[mito.genes, ])/Matrix::colSums(seuratObject@raw.data)
+  seuratObject <- AddMetaData(object = seuratObject, metadata = percent.mito, col.name = "percent.mito")
+  seuratObject <- FilterCells(object = seuratObject, subset.names = c("nGene", "percent.mito"), low.thresholds = c(1000, -Inf), high.thresholds = c(Inf, 0.1))
+  
+  
+  return(seuratObject)
 }
 
 

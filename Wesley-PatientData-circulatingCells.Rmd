@@ -1,0 +1,156 @@
+---
+title: "R Notebook"
+author: "David John"
+output:
+  html_document:
+    df_print: paged
+---
+
+#1.) Import Data
+## 1.1) Import packages
+```{r message=FALSE}
+#load libraries
+library(dplyr)
+library(ggpubr)
+
+require(scales)
+
+
+
+source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions.R")
+```
+---
+
+## 1.2) Define static parameters
+```{r}
+#Static Parameters 
+#CD34 Cells excluded for now
+#"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-010",
+#"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-011",
+#"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-014",
+#"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-016",
+#"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-017",
+
+#"HFpEF","Young_Control",Young_Control","ICM_HFrEF","Young_Control"
+Path.PatientData.CD31.circulatingCells <- c(
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-001/outs/filtered_feature_bc_matrix/",
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-002/outs/filtered_feature_bc_matrix/",
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-003/outs/filtered_feature_bc_matrix/",
+                     
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-004/outs/filtered_feature_bc_matrix/",
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-005/outs/filtered_feature_bc_matrix/",
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-006/outs/filtered_feature_bc_matrix/",
+                     
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-007/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-008/outs/filtered_feature_bc_matrix/",
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-009/outs/filtered_feature_bc_matrix/",
+                     
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-012/outs/filtered_feature_bc_matrix/",
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-013/outs/filtered_feature_bc_matrix/",
+                     #"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-015/outs/filtered_feature_bc_matrix/",
+                     
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-001/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-002/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-003/outs/filtered_feature_bc_matrix/",
+                     
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-004/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-005/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-006/outs/filtered_feature_bc_matrix/",
+                     
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-007/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-008/outs/filtered_feature_bc_matrix/")
+Samplenames.PatientData <- c(#"HF-1","HF-2","HF-3",
+                             #"HF-4","HF-5","HF-6",
+                             #"Ctrl-Aged-1",
+                             "Ctrl-Aged-2",
+                             #"Ctrl-Aged-3",
+                             #"Ctrl-Young-1","Ctrl-CD14-Young-1","HF-7",
+                             "Ctrl-Young-2","Ctrl-Young-3","Ctrl-Young-4",
+                             "Ctrl-Young-5","HF-8","HF-9",
+                             "HF-10","HF-11")
+```
+
+## 1.3) Impute the dataset
+```{r}
+imputeData(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData, cluster = 20, ncores = 20)
+```
+
+
+##1.4) perform pre analysis
+this analysis is only for stefanie to confirm the previous results. 
+```{r}
+Path.PatientData.CD31.circulatingCells <- c(
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-001/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-002/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-003/outs/filtered_feature_bc_matrix/",
+                     
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-004/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-005/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-006/outs/filtered_feature_bc_matrix/",
+                     
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-007/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-008/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-009/outs/filtered_feature_bc_matrix/",
+                     
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-012/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-013/outs/filtered_feature_bc_matrix/",
+                     "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-015/outs/filtered_feature_bc_matrix/"
+)
+
+Samplenames.PatientData <- c("HF-1","HF-2","HF-3",
+                             "HF-4","HF-5","HF-6",
+                             "Ctrl-Aged-1","Ctrl-Aged-2","Ctrl-Aged-3",
+                             "Ctrl-Young-1","Ctrl-CD14-Young-1","HF-7"
+                             )
+
+#import and combine the new samples
+CD31.circulatingCells <- combineSeuratObjectsCCA(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData)
+
+CD31.circulatingCells<-NormalizeData(object = CD31.circulatingCells)
+
+
+#regress out batch effects 
+mito.genes <- grep(pattern = "^MT-", x = rownames(x = CD31.circulatingCells@data), value = TRUE)
+percent.mito <- Matrix::colSums(CD31.circulatingCells@raw.data[mito.genes, ])/Matrix::colSums(CD31.circulatingCells@raw.data)
+CD31.circulatingCells <- AddMetaData(object = CD31.circulatingCells, metadata = percent.mito, col.name = "percent.mito");rm(mito.genes, percent.mito)
+CD31.circulatingCells.filtered <- FilterCells(object = CD31.circulatingCells, subset.names = c("nGene", "percent.mito"), low.thresholds = c(1000, -Inf), high.thresholds = c(Inf, 0.1))
+
+
+GenePlot(object = CD31.circulatingCells, gene1 = "nUMI", gene2 = "percent.mito")
+GenePlot(object = CD31.circulatingCells.filtered, gene1 = "nUMI", gene2 = "percent.mito")
+
+
+CD31.circulatingCells.filtered <- FindVariableGenes(object = CD31.circulatingCells.filtered)
+CD31.circulatingCells.filtered <- RunPCA(object = CD31.circulatingCells.filtered, features = VariableFeatures(object = CD31.circulatingCells.filtered), verbose = TRUE)
+CD31.circulatingCells.filtered<-ProjectPCA(object = CD31.circulatingCells.filtered, do.print = FALSE)
+PCHeatmap(object = CD31.circulatingCells.filtered, pc.use = 1:12, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+CD31.circulatingCells.filtered <- FindClusters(object = CD31.circulatingCells.filtered, reduction.type = "pca", dims.use = 1:5, resolution = 0.6, print.output = 0, save.SNN = TRUE)
+PrintFindClustersParams(object = CD31.circulatingCells.filtered)
+CD31.circulatingCells.filtered <- RunTSNE(object = CD31.circulatingCells.filtered, dims.use = 1:5, do.fast = TRUE)
+
+
+TSNEPlot(object = CD31.circulatingCells.filtered, label=T, pt.size = 2.1, do.return=TRUE)
+
+TSNEPlot(object = CD31.circulatingCells.filtered, label=T, pt.size = 2.1, group_by = "orig.ident", do.label = T)
+
+CD31.circulatingCells.filtered<-SetAllIdent(CD31.circulatingCells.filtered, id = "orig.ident")
+
+
+plotList<- c()
+for (ident in sort(unique(CD31.circulatingCells.filtered@meta.data$orig.ident))[1:4]) {
+  cat(i,"\n")
+  
+  #plotList<-c(plotList,ident)
+  #svg(filename = paste("/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/TNSE",ident,".svg",sep = "-"))
+  #cellToUse<-c(cellToUse,grep(c("HF-1","HF-2","HF-3"), CD31.circulatingCells.filtered@cell.names, value = TRUE))
+  #TSNEPlot(object = CD31.circulatingCells.filtered, label=T, pt.size = 0.1, group_by = "orig.ident", do.label = T, label.size = 5, 
+                          #cells.use = grep(c("HF-1","HF-2","HF-3"), CD31.circulatingCells.filtered@cell.names, value = TRUE))
+
+  #dev.off()
+  }
+
+ggarrange(plotlist = plotList[1])
+
+```
+
+
