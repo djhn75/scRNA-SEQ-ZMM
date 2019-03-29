@@ -127,8 +127,10 @@ FilterDeadCells <- function(seuratObject, species = "human"){
   mito.genes <- grep(pattern = "^mt-", x = rownames(x = seuratObject@data), value = TRUE)
   percent.mito <- Matrix::colSums(seuratObject@raw.data[mito.genes, ])/Matrix::colSums(seuratObject@raw.data)
   seuratObject <- AddMetaData(object = seuratObject, metadata = percent.mito, col.name = "percent.mito")
-  seuratObject <- FilterCells(object = seuratObject, subset.names = c("nGene", "percent.mito"), low.thresholds = c(1000, -Inf), high.thresholds = c(Inf, 0.1))
-  
+  nCellsBefore <-length(seuratObject@ident)
+  seuratObject <- FilterCells(object = seuratObject, subset.names = c("nGene", "percent.mito"), low.thresholds = c(500, -Inf), high.thresholds = c(Inf, 0.2))
+  nCellsAfter <-length(seuratObject@ident)
+  cat(nCellsAfter, " out of ", nCellsBefore, " passed the Dead Cell filters")
   
   return(seuratObject)
 }
@@ -148,7 +150,7 @@ combineScImputedSeuratObjectsCCA <- function(pathways,ids){
   #loop through directories of pathways
   for (i in 1:length(pathways)) {
     matrixPath<-paste(pathways[i],"scImpute",paste(ids[i],"scimpute_count.csv",sep=""),sep = "/")
-    seuratObject<-Importer(matrixPath,ids[i], TenX = FALSE)
+    seuratObject<-Importer(matrixPath,ids[i], TenX = FALSE, performNormalisation = T, performVariableGeneDetection = TRUE, performScaling = TRUE)
     hvg<-c(hvg,head(rownames(seuratObject@hvg.info), 1000)) #save variable genes
     seurat.objects<-c(seurat.objects,seuratObject)
   }
