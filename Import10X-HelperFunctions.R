@@ -6,7 +6,7 @@ library(Seurat)
 #' @param pathways A vector of pathways to the cellrancer count output folder (contains barcodes.tsv, genes.tsv, matrix.mtx)
 #' @param ids Vector of strings that are assigned to the concordant cells
 #' @return Merged seurat object
-Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performVariableGeneDetection=TRUE, performScaling = TRUE) {
+Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performVariableGeneDetection=TRUE, performScaling = TRUE, filterDeadCells=TRUE) {
   if (TenX) {
     Matrix <- Read10X(pathway)
   }  else{
@@ -15,6 +15,9 @@ Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performVa
   
   seuratObject =CreateSeuratObject(raw.data = Matrix, min.cells= 3, min.genes = 200)
   seuratObject<-RenameCells(object = seuratObject, add.cell.id = id)
+  if (filterDeadCells==TRUE) {
+    seuratObject<-FilterDeadCells(seuratObject = seuratObject,species = "human", low.tresholds=c(400,-Inf), high.tresholds=c(Inf, 0.1))
+  }
   if (performNormalisation==TRUE) {
     seuratObject<-NormalizeData(object = seuratObject)
   }
@@ -39,7 +42,7 @@ combineSeuratObjectsCCA <- function(pathways,ids){
   hvg<-c() #to save high variable genes
   seurat.objects<-list() #list to dave Seurat objects
   for (i in 1:length(pathways)) {
-    seuratObject<-Importer(pathways[i],ids[i])
+    seuratObject<-Importer(pathway = pathways[i],id = ids[i],TenX = TRUE, performNormalisation = TRUE, performScaling = TRUE, performVariableGeneDetection = TRUE)
     hvg<-c(hvg,head(rownames(seuratObject@hvg.info), 1000)) #save variable genes
     seurat.objects<-c(seurat.objects,seuratObject)
   }
@@ -108,7 +111,7 @@ imputeData <- function(pathways,ids, cluster=12, ncores=20, drop_thre=0.5){
 #' @author David John
 #' @param seuratObject 
 #' @return filtered seurat object
-FilterDeadCells <- function(seuratObject, species = "human"){
+FilterDeadCells <- function(seuratObject, species = "human", low.tresholds=c(500,-Inf), high.tresholds=c(Inf, 0.1)){
   # The number of features and UMIs (nFeature_RNA and nCount_RNA) are automatically calculated for every object by Seurat.
   # For non-UMI data, nCount_RNA represents the sum of the non-normalized values within a cell
   # We calculate the percentage of mitochondrial features here and store it in object metadata as `percent.mito`.
@@ -128,7 +131,7 @@ FilterDeadCells <- function(seuratObject, species = "human"){
   percent.mito <- Matrix::colSums(seuratObject@raw.data[mito.genes, ])/Matrix::colSums(seuratObject@raw.data)
   seuratObject <- AddMetaData(object = seuratObject, metadata = percent.mito, col.name = "percent.mito")
   nCellsBefore <-length(seuratObject@ident)
-  seuratObject <- FilterCells(object = seuratObject, subset.names = c("nGene", "percent.mito"), low.thresholds = c(500, -Inf), high.thresholds = c(Inf, 0.2))
+  seuratObject <- FilterCells(object = seuratObject, subset.names = c("nGene", "percent.mito"), low.thresholds = low.tresholds, high.thresholds = high.tresholds)
   nCellsAfter <-length(seuratObject@ident)
   cat(nCellsAfter, " out of ", nCellsBefore, " passed the Dead Cell filters")
   
