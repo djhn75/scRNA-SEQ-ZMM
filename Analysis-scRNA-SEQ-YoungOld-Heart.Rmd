@@ -140,9 +140,9 @@ GenePlot(object = WholeHeart.Imputed, gene1 = "nUMI", gene2 = "nGene", sub="impu
 
 ##2.2) Run clustering
 ```{r Clustering}
-WholeHeart <- RunPCA(object = WholeHeart, pc.genes = WholeHeart@var.genes, do.print = TRUE, pcs.print = 1:5, genes.print = 5)
-WholeHeart<-ProjectPCA(object = WholeHeart, do.print = FALSE)
-PCHeatmap(object = WholeHeart, pc.use = 1:12, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+#WholeHeart <- RunPCA(object = WholeHeart, pc.genes = WholeHeart@var.genes, do.print = TRUE, pcs.print = 1:5, genes.print = 5)
+#WholeHeart<-ProjectPCA(object = WholeHeart, do.print = FALSE)
+#PCHeatmap(object = WholeHeart, pc.use = 1:12, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
 WholeHeart <- FindClusters(object = WholeHeart, reduction.type = "pca", dims.use = 1:5, resolution = 0.6, print.output = 0, save.SNN = TRUE)
 PrintFindClustersParams(object = WholeHeart)
 WholeHeart <- RunTSNE(object = WholeHeart, dims.use = 1:5, do.fast = TRUE)
@@ -171,6 +171,22 @@ a<-ggarrange(a$Cdh5,a$Pecam1);annotate_figure(a, top = text_grob("Imputed", colo
 ```
 
 
+```{r}
+WholeHeart<-SetAllIdent(WholeHeart,id="res.06")
+TSNEPlot(object = WholeHeart, label=T, do.label = T, label.size = 9, pt.size = 0.5, do.return=TRUE,plot.title="Not Imputed")
+VlnPlot(object = WholeHeart, features.plot = c("Cyyr1"))
+
+
+WholeHeart<-SetAllIdent(WholeHeart,id="condition")
+TSNEPlot(object = WholeHeart, label=T, pt.size = 0.5, do.return=TRUE,plot.title="Not Imputed")
+
+WholeHeart<-SetAllIdent(WholeHeart,id="orig.ident")
+TSNEPlot(object = WholeHeart, label=T, pt.size = 0.5, do.return=TRUE,plot.title="Not Imputed")
+
+
+WholeHeart.Imputed<-SetAllIdent(WholeHeart.Imputed,id="orig.ident")
+TSNEPlot(object = WholeHeart.Imputed, label=T, pt.size = 0.5, do.return=TRUE, plot.title="scImpute")
+```
 
 
 ### 3.1.2.) Cluster Specific Markers Markers
@@ -191,6 +207,7 @@ top.Markers.WholeHeart
 ######The clusters seem to be much more stringent and also lower expressed genes are now present at higher levels and more cluster specific
 ```{r}
 top.Markers.WholeHeart.Imputed <- WholeHeart.Imputed.Markers %>% group_by(cluster) %>% top_n(10, avg_logFC)
+write.csv(top.Markers.WholeHeart.Imputed,file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/NewAnalysis22.11.18/Imputed/Top10MarkerGenesPerCluster.csv")
 top.Markers.WholeHeart.Imputed
 ```
 
@@ -217,7 +234,7 @@ annotate_figure(ggarrange(a$Pecam1,a$Cdh5,a$Lyz2,a$Fbn1), top = text_grob("Imput
 ### 3.1.4.) ViolinPlots of Cluster Specific Markers
 #### Raw
 ```{r}
-a<-VlnPlot(object = WholeHeart, features.plot = c("Fabp4","Vwf","Cd74","Myh6","Pecam1","Cdh5", "Lyz2", "Fbn1"),return.plotlist = TRUE, do.return=TRUE)
+a<-VlnPlot(object = WholeHeart, features.plot = c("Fabp4","Myh6",       "Cd74","Myh6","Pecam1","Cdh5", "Lyz2", "Fbn1"),return.plotlist = TRUE, do.return=TRUE)
 annotate_figure(ggarrange(a[[1]],a[[2]],a[[3]],a[[4]]), top = text_grob("Raw", color = "red", face = "bold", size = 16))
 annotate_figure(ggarrange(a[[5]],a[[6]],a[[7]],a[[8]]), top = text_grob("Raw", color = "red", face = "bold", size = 16))
 
@@ -289,14 +306,92 @@ rm(cluster_condition)
 ```
 
 
+
+## rename Clusters
+#### Raw
+```{r}
+WholeHeart <- SetAllIdent(WholeHeart,id="res.0.6")
+VlnPlot(object = WholeHeart, features.plot = c("Ttn","Pcdh9", "Fabp4"),x.lab.rot = T, size.x.use = 7) 
+
+#rename all clusters
+
+clusterNames <- c("Cardiomyocytes", "Cardiomyocytes2","Cardiomyocytes2", "Fibroblasts","Endothelial_Cells", "Endothelial_Cells"
+                  , "Endothelial_Cells", "Endothelial_Cells","Endothelial_Cells", "Unknown0", 
+                   "Unknown1", "Unknown2", "Unknown3", "Unknown4", "Unknown5", "Unknown6", "Unknown7", "Unknown8")
+Fibroblasts
+Endothelial Cells
+
+length(table(wholeHeartYoungOld@ident))
+length(WholeHeart)
+
+for (i in 0:length(table(wholeHeartYoungOld@ident))){
+  wholeHeartYoungOld<-RenameIdent(object = wholeHeartYoungOld, old.ident.name = i, new.ident.name = clusterNames[i+1])
+}
+```
+
+
+#### Imputed
+```{r}
+VlnPlot(object = WholeHeart.Imputed, features.plot = c("Ttn","Pcdh9", "Fabp4"),x.lab.rot = T, size.x.use = 7) 
+
+WholeHeart.Imputed<-SetAllIdent(WholeHeart.Imputed,id = "res.0.6")
+
+clusterNames <- c("Cardiomyocytes", "Endothelial Cells","Endothelial Cells2",
+                  "Cardiomyocytes2","Unknown4","Unknown5","Fibroblasts","Fibroblasts",
+                  "Unknown8","Unknown9","Unknown10","Unknown11","Unknown12","Unknown13",
+                  "Unknown14","Unknown15","Unknown16","Unknown17","Unknown18","Unknown19")
+length(table(WholeHeart.Imputed@ident))
+length(clusterNames)
+
+
+for (i in 1:length(table(WholeHeart.Imputed@ident))-1){
+  cat(i,clusterNames[i+1],"\n")
+  WholeHeart.Imputed<-RenameIdent(object = WholeHeart.Imputed, old.ident.name = i, new.ident.name = clusterNames[i+1])
+}
+WholeHeart.Imputed<-AddMetaData(WholeHeart.Imputed, metadata = WholeHeart.Imputed@ident, col.name = "clusterNames")
+table(WholeHeart.Imputed@ident)
+table(clusterNames)
+```
+
+```{r}
+VlnPlot(object = WholeHeart, features.plot = c("Myh6","Fabp4", "Pcdh9"))
+VlnPlot(object = WholeHeart.Imputed, features.plot = c("Myh6","Fabp4", "Pcdh9"))
+
+```
+
+
 ### 3.2.1.) Endthelial Cells
 ##### Raw
 ```{r}
-top.Markers.WholeHeart
+#Extract Cardiomyocytes
+endothelialCells <- SubsetData(object = WholeHeart, ident.use = c("Endothelial Cells","Endothelial Cells"))
+endothelialCells <- SetAllIdent(object = endothelialCells, id = "condition")
+endothelialCells_regulated_old_young <- FindMarkers(endothelialCells, ident.1 = "Old", ident.2 = "Young", only.pos = FALSE,print.bar = T)
+
+endothelialCells_regulated_old_young <- endothelialCells_regulated_old_young[order(endothelialCells_regulated_old_young$avg_logFC),]
+endothelialCells_regulated_old_young <- endothelialCells_regulated_old_young[order(cardiomyocytes_regulated_old_young$p_val),]
+topRegulated<- rbind(head(endothelialCells_regulated_old_young),tail(endothelialCells_regulated_old_young))
+VlnPlot(object = endothelialCells, features.plot = c(rownames(topRegulated)))
+
+VlnPlot(object = wholeHeartYoungOld, features.plot = c(rownames(head(cardiomyocytes_regulated_old_young))))
+VlnPlot(object = wholeHeartYoungOld, features.plot = c("Plvap"))
+
 ```
 
 ##### Imputed
 ```{r}
+#Extract Cardiomyocytes
+endothelialCells.Imputed <- SubsetData(object = WholeHeart.Imputed, ident.use = c("Cardiomyocytes","Cardiomyocytes2"))
+endothelialCells.Imputed <- SetAllIdent(object = endothelialCells.Imputed, id = "condition")
+endothelialCells_regulated_old_young.Imputed <- FindMarkers(endothelialCells.Imputed, ident.1 = "Old", ident.2 = "Young", only.pos = FALSE,print.bar = T)
+
+endothelialCells_regulated_old_young.Imputed <- endothelialCells_regulated_old_young.Imputed[order(endothelialCells_regulated_old_young.Imputed$avg_logFC),]
+endothelialCells_regulated_old_young.Imputed <- endothelialCells_regulated_old_young.Imputed[order(endothelialCells_regulated_old_young.Imputed$p_val),]
+topRegulated<- rbind(head(endothelialCells_regulated_old_young.Imputed),tail(endothelialCells_regulated_old_young.Imputed))
+VlnPlot(object = endothelialCells.Imputed, features.plot = c(rownames(topRegulated)))
+
+VlnPlot(object = wholeHeartYoungOld, features.plot = c(rownames(head(endothelialCells_regulated_old_young.Imputed))))
+VlnPlot(object = wholeHeartYoungOld, features.plot = c("Plvap"))
 
 ```
 
@@ -310,8 +405,44 @@ top.Markers.WholeHeart
 ---
 ##### Imputed
 ```{r}
+#Extract Cardiomyocytes
+WholeHeart.Imputed<-SetAllIdent(WholeHeart.Imputed,id = "clusterNames")
+table(WholeHeart.Imputed@ident)
+cardiomyocytes <- SubsetData(object = WholeHeart.Imputed, ident.use = c("Cardiomyocytes","Cardiomyocytes2"))
+cardiomyocytes <- SetAllIdent(object = cardiomyocytes, id = "condition")
+cardiomyocytes_regulated_old_young <- FindMarkers(cardiomyocytes, ident.1 = "Old", ident.2 = "Young", only.pos = FALSE,print.bar = T)
+
+cardiomyocytes_regulated_old_young <- cardiomyocytes_regulated_old_young[order(cardiomyocytes_regulated_old_young$avg_logFC),]
+cardiomyocytes_regulated_old_young <- cardiomyocytes_regulated_old_young[order(cardiomyocytes_regulated_old_young$p_val),]
+topRegulated<- rbind(head(cardiomyocytes_regulated_old_young),tail(cardiomyocytes_regulated_old_young))
+VlnPlot(object = cardiomyocytes, features.plot = c(rownames(topRegulated)))
+
+VlnPlot(object = wholeHeartYoungOld, features.plot = c(rownames(head(cardiomyocytes_regulated_old_young))))
+VlnPlot(object = wholeHeartYoungOld, features.plot = c("Plvap"))
 
 ```
+
+```{r}
+#cluster Cardiomyocytes
+cardiomyocytes <- RunCCA(object = cardiomyocytes, group1 = WhichCells(object = cardiomyocytes, ident = "Old"), group2 = WhichCells(object = cardiomyocytes, ident = "Young"),)
+cardiomyocytes <- AlignSubspace(object = cardiomyocytes, reduction.type = "cca", grouping.var = "condition", dims.align = 1:20)
+cardiomyocytes <- RunTSNE(object = cardiomyocytes, dims.use = 1:10, do.fast = TRUE, reduction.use = "cca")
+cardiomyocytes <- FindClusters(object = cardiomyocytes, reduction.type = "cca", dims.use = 1:10, save.SNN = TRUE, force.recalc=TRUE)
+cardiomyocytes <- AddMetaData(object = cardiomyocytes, metadata = cardiomyocytes@ident, col.name = "ccaClustersCardiomyocytes")
+
+TSNEPlot(object = cardiomyocytes, label=T, pt.size = 0.6)
+TSNEPlot(object = cardiomyocytes, label=T, pt.size = 0.6, group.by = "condition")
+
+
+#Find Clusterspcific genes
+cardiomyocytes <- SetAllIdent(object = cardiomyocytes, id = "ccaClusters")
+cardiomyocytes.Cluster_markers <- FindAllMarkers(object = cardiomyocytes,, min.pct = 0.25, thresh.use = 0.25)
+VlnPlot(object = cardiomyocytes, features.plot = c("Cdh5","Gm13601","Gm12381","Scn3a","Ccdc79","Gm13481","Fgr"))
+cardiomyocytes.top10 <- wholHeeartYoungOld.markers %>% group_by(cluster) %>% top_n(10, avg_logFC)
+
+cardiomyocytes <- SetAllIdent(object = cardiomyocytes, id = "ccaClusters")
+```
+
 
 ---
 ### 3.2.1.) Fibroblats
@@ -328,16 +459,4 @@ top.Markers.WholeHeart
 
 ## 3.2.) Examine differentially expressed lncRNAs Young vs Old for different Cell Types
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
-
-```{r}
-plot(cars)
-```
-
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
-
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
-
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

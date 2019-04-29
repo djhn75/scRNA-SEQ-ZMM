@@ -526,6 +526,7 @@ Samplenames.PatientData <- c("Ctrl-Young-2","Ctrl-Young-3","Ctrl-Young-4",
 #load libraries
 library(dplyr)
 library(ggpubr)
+library(monocle)
 
 require(scales)
 
@@ -533,9 +534,6 @@ logFile="/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedB
 if (file.exists(logFile)) {
   file.remove(logFile)
 }
-source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions.R")
-sink(file = logFile, append = TRUE, split = TRUE)
-
 source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions.R")
 sink(file = logFile, append = TRUE, split = TRUE)
 ```
@@ -596,17 +594,24 @@ CD31.circulatingCells <- RunTSNE(object = CD31.circulatingCells, dims.use = 1:11
 save(CD31.circulatingCells,file = paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData"))
 ```
 
+```{r}
+
+load(file=paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData"))
+```
+
+
 ## 3.1.5)generate TSNE Plots
 ####All Samples combined
 ```{r}
 CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
-TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE)
+TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE, do.label = TRUE, label.size = 9)
 
 
 CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "orig.ident")
 TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE)
 
-
+CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "condition")
+TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE)
 ```
 
 ####Separated by condition
@@ -650,10 +655,10 @@ for (ident in idents){
   cellsToUse<-grep(x, CD31.circulatingCells@cell.names, value = TRUE)
   #head(cellsToUse)
   filename <- paste0(outputFolder,"/TSNE/png/TSNE-",ident,".png")
-  png(filename = filename,width = 800, height = 800)
-  TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 2, label.size = 12, cells.use = cellsToUse, do.label = TRUE, plot.title=ident,coord.fixed=TRUE,no.legend = TRUE, vector.friendly=TRUE,png.arguments=c(10,10,100))
-  #TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 1,label.size = 6, cells.use = cellsToUse, do.label = TRUE, plot.title=ident)
-  dev.off()
+  #png(filename = filename,width = 800, height = 800)
+  #TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 2, label.size = 12, cells.use = cellsToUse, do.label = TRUE, plot.title=ident,coord.fixed=TRUE,no.legend = TRUE, vector.friendly=TRUE,png.arguments=c(10,10,100))
+  TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 1,label.size = 6, cells.use = cellsToUse, do.label = TRUE, plot.title=ident)
+  #dev.off()
   }
 ```
 
@@ -672,6 +677,7 @@ library(dplyr)
 library(ggplot2)
 library(scales)
 library(Seurat)
+library(stringr)
 V<- CD31.circulatingCells@meta.data
 orig.ident.ordered<-str_sort(unique(CD31.circulatingCells@meta.data$orig.ident),numeric = TRUE)
 V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
@@ -709,8 +715,8 @@ save(CD31.circulatingCells,file = paste0(outputFolder,"Wesley-PatientData-circul
 ```
 
 
-
-## 3.1.7) Cluster specific markers
+## 3.1.7 DEG's
+### 3.1.7.1) Cluster specific markers
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
 CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, only.pos = TRUE)
@@ -720,24 +726,342 @@ dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logF
 write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
 ```
 
-## 3.1.8) DEGs HF vs CTRL-Aged
+generate vlnPlots
+```{r}
+VlnPlot(object = CD31.circulatingCells, features.plot = din)
+
+```
+
+
+### 3.1.7.2) DEGs HF vs CTRL-Aged
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
-CD31.circulatingCells.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "HF", ident.2 = "Ctrl-Aged")
+CD31.circulatingCells.CtrlAgedvsHF.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "Ctrl-Aged", ident.2 = "HF")
 # --> No DEGs found
 
-dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logFC)
-write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
+CD31.circulatingCells.CtrlAgedvsHF.markers$geneName<-rownames(CD31.circulatingCells.CtrlAgedvsHF.markers)
+CD31.circulatingCells.CtrlAgedvsHF.markers<-CD31.circulatingCells.CtrlAgedvsHF.markers[order(CD31.circulatingCells.CtrlAgedvsHF.markers$avg_logFC),]
+topup<-head(x = CD31.circulatingCells.CtrlAgedvsHF.markers, n=9)
+topdown<-tail(x = CD31.circulatingCells.CtrlAgedvsHF.markers, n=9)
+
+
+write.csv(CD31.circulatingCells.CtrlAgedvsHF.markers,file = paste0(outputFolder,"ClusterSpecificMarkers.CtrlAged-vs-HF.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
 ```
 
 
-## 3.1.9) DEG Old vs Young 
 ```{r}
-CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
-CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, only.pos = TRUE)
+CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
+CD31.circulatingCells_downregulated <- FindMarkers(CD31.circulatingCells, ident.1 = "Ctrl-Aged", ident.2 = "HF", only.pos = TRUE,print.bar = T)
+CD31.circulatingCells_upregulated <- FindMarkers(CD31.circulatingCells, ident.1 = "HF", ident.2 = "Ctrl-Aged", only.pos = TRUE,print.bar = T)
+head(CD31.circulatingCells_downregulated,n=9);head(CD31.circulatingCells_upregulated,n=9)
+topDown<-head(CD31.circulatingCells_downregulated,n=6)
+topUp<-head(CD31.circulatingCells_upregulated,n=6)
+
+```
+
+generate vlnPlots topUp colored by orig.ident
+```{r}
+CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "orig.ident")
+
+
+VlnPlot(object = CD31.circulatingCells, features.plot = topup$geneName[1],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topup$geneName[2],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topup$geneName[3],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topup$geneName[4],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topup$geneName[5],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topup$geneName[6],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topup$geneName[7],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topup$geneName[8],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topup$geneName[9],x.lab.rot = TRUE)
+
+```
+
+
+```{r}
+VlnPlot(object = CD31.circulatingCells, features.plot = topdown$geneName[1],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topdown$geneName[2],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topdown$geneName[3],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topdown$geneName[4],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topdown$geneName[5],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topdown$geneName[6],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topdown$geneName[7],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topdown$geneName[8],x.lab.rot = TRUE)
+VlnPlot(object = CD31.circulatingCells, features.plot = topdown$geneName[9],x.lab.rot = TRUE)
+```
+
+```{r}
+VlnPlot(object = CD31.circulatingCells, features.plot = rownames(topUp))
+VlnPlot(object = CD31.circulatingCells, features.plot = rownames(topDown))
+```
+
+
+
+### 3.1.7.3) DEG Old vs Young 
+```{r}
+CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
+CD31.circulatingCells.YoungvsOld.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "Ctrl-Young", ident.2 = "Ctrl-Aged")
 # --> No DEGs found
 
 dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logFC)
-write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
+write.csv(CD31.circulatingCells.markers,file = paste0(outputFolder,"ClusterSpecificMarkers.CtrlYoung-vs-CtrlAged.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
 ```
+
+## 3.1.8) Trajectory
+```{r}
+library(monocle)
+```
+
+### 3.1.8.1 Import to Monocle
+```{r}
+require(monocle)
+CD31.circulatingCells.Monocle <- importCDS(CD31.circulatingCells)
+CD31.circulatingCells.Monocle <- estimateSizeFactors(CD31.circulatingCells.Monocle)
+CD31.circulatingCells.Monocle <- estimateDispersions(CD31.circulatingCells.Monocle)
+CD31.circulatingCells.Monocle <- detectGenes(CD31.circulatingCells.Monocle, min_expr = 0.1)
+expressed_genes <- row.names(subset(fData(CD31.circulatingCells.Monocle), num_cells_expressed >= 10))
+```
+
+
+```{r}
+# Log-transform each value in the expression matrix.
+L <- log(exprs(CD31.circulatingCells.Monocle[expressed_genes,]))
+
+# Standardize each gene, so that they are all on the same scale,
+# Then melt the data with plyr so we can plot it easily
+melted_dens_df <- melt(Matrix::t(scale(Matrix::t(L))))
+
+# Plot the distribution of the standardized gene expression values.
+qplot(value, geom = "density", data = melted_dens_df) +  stat_function(fun = dnorm, size = 0.5, color = 'red') +  xlab("Standardized log(FPKM)") +  ylab("Density")
+```
+
+```{r}
+pData(CD31.circulatingCells.Monocle)$Total_mRNAs <- Matrix::colSums(exprs(CD31.circulatingCells.Monocle))
+pData(CD31.circulatingCells.Monocle)
+
+
+###########################################################
+####    add parameters and conditions to Monocle    #######
+###########################################################
+patient_id <- c()
+condition <- c()
+for (barcode in rownames(pData(CD31.circulatingCells.Monocle))){
+  patient<-unlist(strsplit(barcode,split = "_"))[1]
+  tmp<-unlist(strsplit(barcode,split = "-"))
+  currentCondition<-paste0(tmp[1:length(tmp)-1],collapse = "-")
+  patient_id<-c(patient_id,patient)
+  condition<-c(condition,currentCondition)
+}
+pData(CD31.circulatingCells.Monocle)$condition <- condition
+pData(CD31.circulatingCells.Monocle)$patient_id <- patient_id
+```
+
+Quality control for Monocle
+```{r}
+CD31.circulatingCells.Monocle <- CD31.circulatingCells.Monocle[,pData(CD31.circulatingCells.Monocle)$Total_mRNAs < 1e6]
+upper_bound <- 10^(mean(log10(pData(CD31.circulatingCells.Monocle)$Total_mRNAs)) + 2*sd(log10(pData(CD31.circulatingCells.Monocle)$Total_mRNAs)))
+lower_bound <- 10^(mean(log10(pData(CD31.circulatingCells.Monocle)$Total_mRNAs)) -  2*sd(log10(pData(CD31.circulatingCells.Monocle)$Total_mRNAs)))
+
+qplot(Total_mRNAs, data = pData(CD31.circulatingCells.Monocle), geom = "density") +  geom_vline(xintercept = lower_bound) + geom_vline(xintercept = upper_bound)
+
+disp_table <- dispersionTable(CD31.circulatingCells.Monocle)
+unsup_clustering_genes <- subset(disp_table, mean_expression >= 1.0)
+CD31.circulatingCells.Monocle <- setOrderingFilter(CD31.circulatingCells.Monocle, unsup_clustering_genes$gene_id)
+plot_ordering_genes(CD31.circulatingCells.Monocle)
+
+
+# HSMM@auxClusteringData[["tSNE"]]$variance_explained <- NULL
+plot_pc_variance_explained(CD31.circulatingCells.Monocle, return_all = F) # norm_method='log'
+```
+
+```{r}
+######################################################
+####    unsupervised clustering for Monocle    #######
+######################################################
+CD31.circulatingCells.Monocle <- reduceDimension(CD31.circulatingCells.Monocle, max_components = 3, num_dim = 6, reduction_method = 'tSNE', residualModelFormulaStr = "~nUMI + num_genes_expressed", verbose = T)
+CD31.circulatingCells.Monocle <- clusterCells(CD31.circulatingCells.Monocle,num_clusters = 9)
+plot_cell_clusters(CD31.circulatingCells.Monocle)
+
+plot_cell_clusters(CD31.circulatingCells.Monocle, 1, 2, color = "patient_id")
+plot_cell_clusters(CD31.circulatingCells.Monocle, 1, 2, color = "condition")
+plot_cell_clusters(CD31.circulatingCells.Monocle, 1, 2, color = "Cluster")
+
+
+#detect differential genes between healthy and disease
+diffGenesCondition <- differentialGeneTest(CD31.circulatingCells.Monocle, fullModelFormulaStr = "~condition", cores = 15)
+# Select genes that are significant at an FDR < 10%
+sig_genes <- subset(diffGenesCondition, qval < 0.01)
+sig_genes <- sig_genes[order(sig_genes$qval),]
+head(sig_genes)
+
+diffGenesControlDisease <- CD31.circulatingCells.Monocle[row.names(subset(fData(CD31.circulatingCells.Monocle), gene_short_name %in% c("IL1B","S100A9", "S100A8","CYP1B1", "CXCL8"))),]
+plot_genes_jitter(diffGenesControlDisease, grouping = "condition", color_by = "condition", nrow= 1, ncol = 5, plot_trend = TRUE, relative_expr = T)
+```
+
+### 3.1.8.2 Create Cell Trajectory
+```{r}
+#select the top 1000 significant genes as the ordering genes.
+H1_ordering_genes <-  row.names(diffGenesCondition)[order(diffGenesCondition$qval)][1:1000]
+CD31.circulatingCells.Monocle <-  setOrderingFilter(CD31.circulatingCells.Monocle, ordering_genes = H1_ordering_genes)
+CD31.circulatingCells.Monocle <- reduceDimension(CD31.circulatingCells.Monocle, method = 'DDRTree')
+CD31.circulatingCells.Monocle <- orderCells(CD31.circulatingCells.Monocle)
+GM_state <- function(cds){
+  if (length(unique(pData(cds)$State)) > 1){
+    T0_counts <- table(pData(cds)$State, pData(cds)$condition)[,"Ctrl-Aged"]
+    return(as.numeric(names(T0_counts)[which(T0_counts == max(T0_counts))]))
+  } else {
+    return (1)
+  }
+}
+CD31.circulatingCells.Monocle <- orderCells(CD31.circulatingCells.Monocle, root_state = GM_state(CD31.circulatingCells.Monocle))
+```
+
+```{r}
+plot_cell_trajectory(CD31.circulatingCells.Monocle, color_by = "condition")
+plot_cell_trajectory(CD31.circulatingCells.Monocle, color_by = "patient_id") + facet_wrap(~patient_id, nrow = 1)
+```
+
+plot cake pie diagram
+```{r}
+trajectoryTable <- table(pData(CD31.circulatingCells.Monocle)$State, pData(CD31.circulatingCells.Monocle)$condition)
+df<-as.data.frame(trajectoryTable)
+ggplot(df, aes(x=factor(1), fill=Freq))+
+  geom_bar(width = 1)+facet_grid(cols = vars(Var1)) +
+  coord_polar("y")
+
+```
+```{r}
+plot_cell_trajectory(CD31.circulatingCells.Monocle, color_by = "patient_id", markers = "CDH5") + facet_wrap(~patient_id, nrow = 1)
+
+```
+
+
+
+
+### 3.1.8.3 Find trajectory specific genes
+```{r}
+BEAM_res <- BEAM(CD31.circulatingCells.Monocle, branch_point = 1, cores = 1);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
+BEAM_res_all<-data.frame(BEAM_res,branchPoint=1)
+BEAM_res <- BEAM(CD31.circulatingCells.Monocle, branch_point = 2, cores = 1);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
+BEAM_res_all<-rbind(BEAM_res_all,data.frame(BEAM_res,branchPoint=2))
+#BEAM_res <- BEAM(H1Monocle, branch_point = 3, cores = 1);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
+#BEAM_res_all<-rbind(BEAM_res_all,data.frame(BEAM_res,branchPoint=3))
+#BEAM_res <- BEAM(H1Monocle, branch_point = 4, cores = 1);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
+#BEAM_res_all<-rbind(BEAM_res_all,data.frame(BEAM_res,branchPoint=4))
+
+BEAM_res_all_filtered <- subset(BEAM_res_all,qval < 0.1)
+setwd("/media/ATLAS_NGS_storage/Wesley/singlecell_Jan_2018/103305_aggrogated/outs/Monocle-Analysis")
+write.csv2(BEAM_res_all_filtered, file="BranchSpecificGenes_04.11.18.csv")
+BEAM_res <- BEAM(H1Monocle, cores = 9);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
+BEAM_res <- BEAM_res[,c("gene_short_name", "pval", "qval")]
+#plot Heatmap
+plot_genes_branched_heatmap(CD31.circulatingCells.Monocle[row.names(subset(BEAM_res,qval < 1e-7)),],branch_point = 1,num_clusters = 4, cores = 1,use_gene_short_name = T,show_rownames = T)
+
+
+blast_genes <- row.names(subset(fData(CD31.circulatingCells.Monocle), gene_short_name %in% c("S100A9", "S100A8", "CYP1B1", "IL1B","CXCL8","CXCL3")))
+plot_genes_jitter(CD31.circulatingCells.Monocle[blast_genes,], grouping = "condition", min_expr = 0.1)
+
+cds_subset <- CD31.circulatingCells.Monocle[blast_genes,]
+plot_genes_in_pseudotime(cds_subset, color_by = "condition")
+
+
+```
+
+
+## 3.1.9 Trajectory of CD14+ Cells (Classical Monocytes)
+```{r}
+FeaturePlot(CD31.circulatingCells, features.plot = c("CD14"))
+CD14.Monocytes <- SubsetData(object = CD31.circulatingCells, ident.use = c("1","4","5","7"))
+
+require(monocle)
+CD14.Monocytes.Monocle <- importCDS(CD14.Monocytes)
+CD14.Monocytes.Monocle <- estimateSizeFactors(CD14.Monocytes.Monocle)
+CD14.Monocytes.Monocle <- estimateDispersions(CD14.Monocytes.Monocle)
+CD14.Monocytes.Monocle <- detectGenes(CD14.Monocytes.Monocle, min_expr = 0.1)
+expressed_genes <- row.names(subset(fData(CD14.Monocytes.Monocle), num_cells_expressed >= 10))
+
+
+pData(CD14.Monocytes.Monocle)$Total_mRNAs <- Matrix::colSums(exprs(CD14.Monocytes.Monocle))
+pData(CD14.Monocytes.Monocle)
+
+
+###########################################################
+####    add parameters and conditions to Monocle    #######
+###########################################################
+patient_id <- c()
+condition <- c()
+for (barcode in rownames(pData(CD14.Monocytes.Monocle))){
+  patient<-unlist(strsplit(barcode,split = "_"))[1]
+  tmp<-unlist(strsplit(barcode,split = "-"))
+  currentCondition<-paste0(tmp[1:length(tmp)-1],collapse = "-")
+  patient_id<-c(patient_id,patient)
+  condition<-c(condition,currentCondition)
+}
+pData(CD14.Monocytes.Monocle)$condition <- condition
+pData(CD14.Monocytes.Monocle)$patient_id <- patient_id
+
+CD14.Monocytes.Monocle <- CD14.Monocytes.Monocle[,pData(CD14.Monocytes.Monocle)$Total_mRNAs < 1e6]
+upper_bound <- 10^(mean(log10(pData(CD14.Monocytes.Monocle)$Total_mRNAs)) + 2*sd(log10(pData(CD14.Monocytes.Monocle)$Total_mRNAs)))
+lower_bound <- 10^(mean(log10(pData(CD14.Monocytes.Monocle)$Total_mRNAs)) -  2*sd(log10(pData(CD14.Monocytes.Monocle)$Total_mRNAs)))
+
+qplot(Total_mRNAs, data = pData(CD14.Monocytes.Monocle), geom = "density") +  geom_vline(xintercept = lower_bound) + geom_vline(xintercept = upper_bound)
+
+disp_table <- dispersionTable(CD14.Monocytes.Monocle)
+unsup_clustering_genes <- subset(disp_table, mean_expression >= 1.0)
+CD14.Monocytes.Monocle <- setOrderingFilter(CD14.Monocytes.Monocle, unsup_clustering_genes$gene_id)
+plot_ordering_genes(CD14.Monocytes.Monocle)
+
+
+# HSMM@auxClusteringData[["tSNE"]]$variance_explained <- NULL
+plot_pc_variance_explained(CD14.Monocytes.Monocle, return_all = F) # norm_method='log'
+
+
+
+######################################################
+####    unsupervised clustering for Monocle    #######
+######################################################
+CD14.Monocytes.Monocle <- reduceDimension(CD14.Monocytes.Monocle, max_components = 3, num_dim = 6, reduction_method = 'tSNE', residualModelFormulaStr = "~nUMI + num_genes_expressed", verbose = T)
+CD14.Monocytes.Monocle <- clusterCells(CD14.Monocytes.Monocle,num_clusters = 9)
+plot_cell_clusters(CD14.Monocytes.Monocle)
+
+plot_cell_clusters(CD14.Monocytes.Monocle, 1, 2, color = "patient_id")
+plot_cell_clusters(CD14.Monocytes.Monocle, 1, 2, color = "condition")
+plot_cell_clusters(CD14.Monocytes.Monocle, 1, 2, color = "Cluster")
+
+
+#detect differential genes between healthy and disease
+diffGenesCondition <- differentialGeneTest(CD14.Monocytes.Monocle, fullModelFormulaStr = "~condition", cores = 15)
+# Select genes that are significant at an FDR < 10%
+sig_genes <- subset(diffGenesCondition, qval < 0.01)
+sig_genes <- sig_genes[order(sig_genes$qval),]
+head(sig_genes)
+
+diffGenesControlDisease <- CD14.Monocytes.Monocle[row.names(subset(fData(CD14.Monocytes.Monocle), gene_short_name %in% c("IL1B","S100A9", "S100A8","CYP1B1", "CXCL8"))),]
+#plot_genes_jitter(diffGenesControlDisease)
+
+
+#select the top 1000 significant genes as the ordering genes.
+H1_ordering_genes <-  row.names(diffGenesCondition)[order(diffGenesCondition$qval)][1:1000]
+CD14.Monocytes.Monocle <-  setOrderingFilter(CD14.Monocytes.Monocle, ordering_genes = H1_ordering_genes)
+CD14.Monocytes.Monocle <- reduceDimension(CD14.Monocytes.Monocle, method = 'DDRTree')
+CD14.Monocytes.Monocle <- orderCells(CD14.Monocytes.Monocle)
+
+GM_state <- function(cds){
+  if (length(unique(pData(cds)$State)) > 1){
+    T0_counts <- table(pData(cds)$State, pData(cds)$condition)[,"Ctrl-Aged"]
+    return(as.numeric(names(T0_counts)[which(T0_counts == max(T0_counts))]))
+  } else {
+    return (1)
+  }
+}
+CD14.Monocytes.Monocle <- orderCells(CD14.Monocytes.Monocle, root_state = GM_state(CD14.Monocytes.Monocle))
+
+plot_cell_trajectory(CD14.Monocytes.Monocle, color_by = "condition")
+plot_cell_trajectory(CD14.Monocytes.Monocle, color_by = "patient_id") + facet_wrap(~patient_id, nrow = 1) + theme(legend.position = "none")
+```
+
+
+
+
+
+
 
