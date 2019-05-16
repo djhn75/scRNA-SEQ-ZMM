@@ -521,7 +521,7 @@ Samplenames.PatientData <- c("Ctrl-Young-2","Ctrl-Young-3","Ctrl-Young-4",
 
 
 ## 3.2) Second Run
-###3.1.1) Import packages
+###3.2.1) Import packages
 ```{r message=FALSE}
 #load libraries
 library(dplyr)
@@ -539,7 +539,7 @@ sink(file = logFile, append = TRUE, split = TRUE)
 ```
 
 
-## 3.1.2) Define static parameters
+## 3.2.2) Define static parameters
 ```{r}
 outputFolder="/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/" 
 
@@ -569,12 +569,12 @@ Samplenames.PatientData <- c("HF-1","HF-2","HF-3",
                              )
 ```
 
-## 3.1.3) Impute the dataset
+## 3.2.3) Impute the dataset
 ```{r}
 #imputeData(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData, cluster = 20, ncores = 20)
 ```
 
-## 3.1.4) import and combine the raw cellranger counts with CCA
+## 3.2.4) import and combine the raw cellranger counts with CCA
 ```{r}
 CD31.circulatingCells <- combineSeuratObjectsCCA(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData)
 
@@ -600,7 +600,7 @@ load(file=paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.Sep
 ```
 
 
-## 3.1.5)generate TSNE Plots
+## 3.2.5)generate TSNE Plots
 ####All Samples combined
 ```{r}
 CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
@@ -668,7 +668,7 @@ TSNEPlot(object = CD31.circulatingCells.s, label=T, pt.size = 2.1, group.by="ori
 ```
 
 
-## 3.1.6) Barplot of cell per cluster
+## 3.2.6) Barplot of cell per cluster
 ```{r fig.height=10, fig.width=15}
 # Counting celltypes in timepoints
 library(tidyr)
@@ -715,8 +715,8 @@ save(CD31.circulatingCells,file = paste0(outputFolder,"Wesley-PatientData-circul
 ```
 
 
-## 3.1.7 DEG's
-### 3.1.7.1) Cluster specific markers
+## 3.2.7 DEG's
+### 3.2.7.1) Cluster specific markers
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
 CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, only.pos = TRUE)
@@ -733,7 +733,7 @@ VlnPlot(object = CD31.circulatingCells, features.plot = din)
 ```
 
 
-### 3.1.7.2) DEGs HF vs CTRL-Aged
+### 3.2.7.2) DEGs HF vs CTRL-Aged
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
 CD31.circulatingCells.CtrlAgedvsHF.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "Ctrl-Aged", ident.2 = "HF")
@@ -796,7 +796,7 @@ VlnPlot(object = CD31.circulatingCells, features.plot = rownames(topDown))
 
 
 
-### 3.1.7.3) DEG Old vs Young 
+### 3.2.7.3) DEG Old vs Young 
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
 CD31.circulatingCells.YoungvsOld.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "Ctrl-Young", ident.2 = "Ctrl-Aged")
@@ -806,12 +806,12 @@ dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logF
 write.csv(CD31.circulatingCells.markers,file = paste0(outputFolder,"ClusterSpecificMarkers.CtrlYoung-vs-CtrlAged.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
 ```
 
-## 3.1.8) Trajectory
+## 3.2.8) Trajectory
 ```{r}
 library(monocle)
 ```
 
-### 3.1.8.1 Import to Monocle
+### 3.2.8.1 Import to Monocle
 ```{r}
 require(monocle)
 CD31.circulatingCells.Monocle <- importCDS(CD31.circulatingCells)
@@ -897,7 +897,7 @@ diffGenesControlDisease <- CD31.circulatingCells.Monocle[row.names(subset(fData(
 plot_genes_jitter(diffGenesControlDisease, grouping = "condition", color_by = "condition", nrow= 1, ncol = 5, plot_trend = TRUE, relative_expr = T)
 ```
 
-### 3.1.8.2 Create Cell Trajectory
+### 3.2.8.2 Create Cell Trajectory
 ```{r}
 #select the top 1000 significant genes as the ordering genes.
 H1_ordering_genes <-  row.names(diffGenesCondition)[order(diffGenesCondition$qval)][1:1000]
@@ -937,7 +937,7 @@ plot_cell_trajectory(CD31.circulatingCells.Monocle, color_by = "patient_id", mar
 
 
 
-### 3.1.8.3 Find trajectory specific genes
+### 3.2.8.3 Find trajectory specific genes
 ```{r}
 BEAM_res <- BEAM(CD31.circulatingCells.Monocle, branch_point = 1, cores = 1);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
 BEAM_res_all<-data.frame(BEAM_res,branchPoint=1)
@@ -967,7 +967,7 @@ plot_genes_in_pseudotime(cds_subset, color_by = "condition")
 ```
 
 
-## 3.1.9 Trajectory of CD14+ Cells (Classical Monocytes)
+## 3.2.9 Trajectory of CD14+ Cells (Classical Monocytes)
 ```{r}
 FeaturePlot(CD31.circulatingCells, features.plot = c("CD14"))
 CD14.Monocytes <- SubsetData(object = CD31.circulatingCells, ident.use = c("1","4","5","7"))
