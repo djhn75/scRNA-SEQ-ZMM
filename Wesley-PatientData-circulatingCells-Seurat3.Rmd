@@ -521,7 +521,7 @@ Samplenames.PatientData <- c("Ctrl-Young-2","Ctrl-Young-3","Ctrl-Young-4",
 
 
 ## 3.2) Second Run
-###3.1.1) Import packages
+###3.2.1) Import packages
 ```{r message=FALSE}
 #load libraries
 library(dplyr)
@@ -535,13 +535,10 @@ if (file.exists(logFile)) {
 }
 source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions.R")
 sink(file = logFile, append = TRUE, split = TRUE)
-
-source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions.R")
-sink(file = logFile, append = TRUE, split = TRUE)
 ```
 
 
-## 3.1.2) Define static parameters
+## 3.2.2) Define static parameters
 ```{r}
 outputFolder="/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/" 
 
@@ -571,12 +568,12 @@ Samplenames.PatientData <- c("HF-1","HF-2","HF-3",
 )
 ```
 
-## 3.1.3) Impute the dataset
+## 3.2.3) Impute the dataset
 ```{r}
 #imputeData(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData, cluster = 20, ncores = 20)
 ```
 
-## 3.1.4) import and combine the raw cellranger counts with CCA
+## 3.2.4) import and combine the raw cellranger counts with CCA
 ```{r}
 CD31.circulatingCells <- combineSeuratObjectsCCA(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData)
 
@@ -596,7 +593,7 @@ CD31.circulatingCells <- RunTSNE(object = CD31.circulatingCells, dims.use = 1:11
 save(CD31.circulatingCells,file = paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData"))
 ```
 
-## 3.1.5)generate TSNE Plots
+## 3.2.5)generate TSNE Plots
 ####All Samples combined
 ```{r}
 CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
@@ -663,7 +660,7 @@ TSNEPlot(object = CD31.circulatingCells.s, label=T, pt.size = 2.1, group.by="ori
 ```
 
 
-## 3.1.6) Barplot of cell per cluster
+## 3.2.6) Barplot of cell per cluster
 ```{r fig.height=10, fig.width=15}
 # Counting celltypes in timepoints
 library(tidyr)
@@ -709,8 +706,21 @@ save(CD31.circulatingCells,file = paste0(outputFolder,"Wesley-PatientData-circul
 ```
 
 
+####Load File
+```{r}
+load(file = paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData"))
+```
 
-## 3.1.7) Cluster specific markers
+####Plot Neutrophil Markers
+```{r}
+FeaturePlot(object = CD31.circulatingCells,features.plot = c("CD68"))
+VlnPlot(object = CD31.circulatingCells,features.plot = c("CD68"))
+
+```
+
+
+
+## 3.2.7) Cluster specific markers
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
 CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, only.pos = TRUE)
@@ -720,7 +730,7 @@ dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logF
 write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
 ```
 
-## 3.1.8) DEGs HF vs CTRL-Aged
+## 3.2.8) DEGs HF vs CTRL-Aged
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
 CD31.circulatingCells.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "HF", ident.2 = "Ctrl-Aged")
@@ -731,7 +741,7 @@ write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-Patient
 ```
 
 
-## 3.1.9) DEG Old vs Young 
+## 3.2.9) DEG Old vs Young 
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
 CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, only.pos = TRUE)
@@ -739,5 +749,12 @@ CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, 
 
 dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logFC)
 write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
+```
+
+## 3.2.10.) Remove HF1,HF2,HF7,CTRL_YOUNG1 for CIRC Res Paper
+```{r}
+CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells,id = "orig.ident")
+CircRes_Cohort2<-SubsetData(CD31.circulatingCells,ident.use = c("Ctrl-Aged-1","Ctrl-Aged-2","Ctrl-Aged-3","HF-3","HF-4","HF-5","HF-6"))
+save(CircRes_Cohort2,file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.circRes.RData")
 ```
 

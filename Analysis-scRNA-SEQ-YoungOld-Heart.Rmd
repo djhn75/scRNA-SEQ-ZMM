@@ -140,9 +140,9 @@ GenePlot(object = WholeHeart.Imputed, gene1 = "nUMI", gene2 = "nGene", sub="impu
 
 ##2.2) Run clustering
 ```{r Clustering}
-#WholeHeart <- RunPCA(object = WholeHeart, pc.genes = WholeHeart@var.genes, do.print = TRUE, pcs.print = 1:5, genes.print = 5)
-#WholeHeart<-ProjectPCA(object = WholeHeart, do.print = FALSE)
-#PCHeatmap(object = WholeHeart, pc.use = 1:12, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+WholeHeart <- RunPCA(object = WholeHeart, pc.genes = WholeHeart@var.genes, do.print = TRUE, pcs.print = 1:5, genes.print = 5)
+WholeHeart<-ProjectPCA(object = WholeHeart, do.print = FALSE)
+PCHeatmap(object = WholeHeart, pc.use = 1:12, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
 WholeHeart <- FindClusters(object = WholeHeart, reduction.type = "pca", dims.use = 1:5, resolution = 0.6, print.output = 0, save.SNN = TRUE)
 PrintFindClustersParams(object = WholeHeart)
 WholeHeart <- RunTSNE(object = WholeHeart, dims.use = 1:5, do.fast = TRUE)
@@ -159,14 +159,14 @@ WholeHeart.Imputed <- RunTSNE(object = WholeHeart.Imputed, dims.use = 1:5, do.fa
 ## 3.1.) Clusters
 ### 3.1.1.) TSNE and FeaturePlots
 ```{r TSNE}
-TSNEPlot(object = WholeHeart, label=T, pt.size = 2.1, do.return=TRUE,plot.title="Not Imputed")
-TSNEPlot(object = WholeHeart.Imputed, label=T, pt.size = 2.1, do.return=TRUE, plot.title="scImpute")
+TSNEPlot(object = WholeHeart, label=T, pt.size = 1.1, do.return=TRUE,plot.title="Not Imputed")
+TSNEPlot(object = WholeHeart.Imputed, label=T, pt.size = 1.1, do.return=TRUE, plot.title="scImpute")
 DimPlot(object = WholeHeart.Imputed, reduction = "cca")
 rm(a)
-a<-FeaturePlot(object = WholeHeart, features.plot = c("Cdh5","Pecam1"), cols.use = c("grey", "blue"), pt.size = 2, do.return=TRUE)
+a<-FeaturePlot(object = WholeHeart, features.plot = c("Cdh5","Pecam1"), cols.use = c("grey", "blue"), pt.size = 1, do.return=TRUE)
 a<-ggarrange(a$Cdh5,a$Pecam1);annotate_figure(a, top = text_grob("Raw", color = "red", face = "bold", size = 16),)
 
-a<-FeaturePlot(object = WholeHeart.Imputed, features.plot = c("Cdh5","Pecam1"), cols.use = c("grey", "blue"), pt.size = 2, do.return=TRUE, vector.friendly = TRUE)
+a<-FeaturePlot(object = WholeHeart.Imputed, features.plot = c("Cdh5","Pecam1"), cols.use = c("grey", "blue"), pt.size = 1, do.return=TRUE, vector.friendly = TRUE)
 a<-ggarrange(a$Cdh5,a$Pecam1);annotate_figure(a, top = text_grob("Imputed", color = "red", face = "bold", size = 16),)
 ```
 
@@ -219,7 +219,7 @@ a<-FeaturePlot(object = WholeHeart, features.plot = c("Fabp4","Vwf","Cd74","Myh6
 annotate_figure(ggarrange(a$Fabp4,a$Vwf,a$Cd74,a$Myh6), top = text_grob("Raw", color = "red", face = "bold", size = 16),)
 annotate_figure(ggarrange(a$Pecam1,a$Cdh5,a$Lyz2,a$Fbn1), top = text_grob("Raw", color = "red", face = "bold", size = 16),)
 
-#VlnPlot(object = WholeHeart.Imputed, features.plot = c("Myh6","Cdh2","Ttn","Fbn1","Lyz2","Pln","Cdh5","Pecam1","Wdr17","Cyyr1","Bicc1","Pck1","F13a1"), group.by = "res.0.6")
+VlnPlot(object = WholeHeart.Imputed, features.plot = c("Myh6","Cdh2","Ttn","Fbn1","Lyz2","Pln","Cdh5","Pecam1","Wdr17","Cyyr1","Bicc1","Pck1","F13a1"), group.by = "res.0.6")
 #a<-FeaturePlot(object = WholeHeart.Imputed, features.plot = top.Markers.WholeHeart$gene,do.return=T, cols.use = c("grey", "blue"), reduction.use = "tsne", vector.friendly = TRUE)
 
 ```
@@ -318,8 +318,7 @@ VlnPlot(object = WholeHeart, features.plot = c("Ttn","Pcdh9", "Fabp4"),x.lab.rot
 clusterNames <- c("Cardiomyocytes", "Cardiomyocytes2","Cardiomyocytes2", "Fibroblasts","Endothelial_Cells", "Endothelial_Cells"
                   , "Endothelial_Cells", "Endothelial_Cells","Endothelial_Cells", "Unknown0", 
                    "Unknown1", "Unknown2", "Unknown3", "Unknown4", "Unknown5", "Unknown6", "Unknown7", "Unknown8")
-Fibroblasts
-Endothelial Cells
+
 
 length(table(wholeHeartYoungOld@ident))
 length(WholeHeart)
