@@ -5,7 +5,7 @@ output: html_notebook
 ---
 
 #1.) Unimputed Data (Both Runs Combined)
-## 1.1) Import packages
+## 1.1.) Import packages
 ```{r message=FALSE}
 #load libraries
 library(dplyr)
@@ -20,7 +20,7 @@ sink(file = "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFa
 ```
 
 
-## 1.2) Define static parameters
+## 1.2.) Define static parameters
 ```{r}
 #Static Parameters 
 #CD34 Cells excluded for now
@@ -67,13 +67,13 @@ Samplenames.PatientData <- c("HF-1","HF-2","HF-3",
                              "HF-10","HF-11")
 ```
 
-## 1.3) Impute the dataset
+## 1.3.) Impute the dataset
 ```{r}
 imputeData(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData, cluster = 20, ncores = 20)
 ```
 
 
-##1.4) import and combine the raw cellranger counts with CCA
+##1.4.) import and combine the raw cellranger counts with CCA
 ```{r}
 sink(file = "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/Wesley-PatientData-circulatingCells-rawValues.rmd.log", append = TRUE, split = TRUE)
 CD31.circulatingCells <- combineSeuratObjectsCCA(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData)
@@ -91,8 +91,8 @@ CD31.circulatingCells <- RunTSNE(object = CD31.circulatingCells, dims.use = 1:5,
 
 ```
 
-## 1.5)generate TSNE Plots
-####All Samples combined
+## 1.5.)generate TSNE Plots
+All Samples combined
 ```{r}
 CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
 TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE)
@@ -104,7 +104,7 @@ TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE)
 
 ```
 
-####Separated by condition
+Separated by condition
 ```{r}
 condition<-c()
 for (barcode in colnames(CD31.circulatingCells@data)) {
@@ -126,7 +126,7 @@ TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.01, do.return=TRUE
 
 ```
 
-####Separated by condition colored by cluster
+Separated by condition colored by cluster
 ```{r}
 CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells,id = "res.0.6")
 for (ident in unique(CD31.circulatingCells@meta.data$condition)){
@@ -136,7 +136,7 @@ for (ident in unique(CD31.circulatingCells@meta.data$condition)){
   }
 ```
 
-####Separated by Patient colored by cluster
+Separated by Patient colored by cluster
 ```{r}
 library(stringr)
 CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells,id = "orig.ident")
@@ -156,7 +156,7 @@ for (ident in idents){
   }
 ```
 
-####Colored by Mutations
+Colored by Mutations
 ```{r}
 condition <- c()
 for (barcode in colnames(CD31.circulatingCells.CD31pos@data)){
@@ -177,7 +177,7 @@ TSNEPlot(object = CD31.circulatingCells.CD31pos, label=T, pt.size = 2.1, group.b
 ```
 
 
-##1.6) Barplot of cell per cluster
+##1.6.) Barplot of cell per cluster
 ```{r fig.height=10, fig.width=15}
 # Counting celltypes in timepoints
 library(tidyr)
@@ -218,7 +218,7 @@ ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= condition))+
 ```
 
 
-##1.7) Cluster specific markers
+##1.7.) Cluster specific markers
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
 CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, only.pos = TRUE)
@@ -233,14 +233,10 @@ write.csv(dink,file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimpu
 
 
 
-##1.6) Only CD31 positive cells
-####load saved dataset
-```{r}
-load(file = "/media/Storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/CD31.circulatingCells.notImputed.rData")
-```
+##1.6.) Only CD31 positive cells
 
 
-####Subset CD31 positiv cells
+Subset CD31 positiv cells
 ```{r}
 CD31.circulatingCells.CD31pos<- SubsetData(CD31.circulatingCells,subset.name = "PECAM1", accept.low = 0.00001,)
 length(CD31.circulatingCells.CD31pos@meta.data$orig.ident)
@@ -250,7 +246,7 @@ cat(diff," Cells were PECAM1 negativ")
 
 ```
 
-####rerun  clustering
+rerun  clustering
 ```{r}
 CD31.circulatingCells.CD31pos <- FindVariableGenes(object = CD31.circulatingCells.CD31pos)
 CD31.circulatingCells.CD31pos <- RunPCA(object = CD31.circulatingCells.CD31pos, features = VariableFeatures(object = CD31.circulatingCells.CD31pos), verbose = TRUE)
@@ -259,8 +255,16 @@ PCHeatmap(object = CD31.circulatingCells.CD31pos, pc.use = 1:12, cells.use = 500
 CD31.circulatingCells.CD31pos <- FindClusters(object = CD31.circulatingCells.CD31pos, reduction.type = "pca", dims.use = 1:5, resolution = 0.6, print.output = 0, save.SNN = TRUE)
 PrintFindClustersParams(object = CD31.circulatingCells.CD31pos)
 CD31.circulatingCells.CD31pos <- RunTSNE(object = CD31.circulatingCells.CD31pos, dims.use = 1:5, do.label=TRUE, do.fast = TRUE)
+```
 
-save(CD31.circulatingCells.CD31pos,file ="/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/CD31.circulatingCells.notImputed.CD31pos.rData")
+#save
+```{r}
+outputFolder="/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/BothRunsCombined/allCells/" 
+save(CD31.circulatingCells.CD31pos,file =paste(outputFolder,"CD31.circulatingCells.notImputed.rData"))
+```
+load
+```{r}
+load(file = paste(outputFolder,"CD31.circulatingCells.notImputed.rData"))
 ```
 
 
@@ -270,7 +274,7 @@ VlnPlot(object = CD31.circulatingCells.CD31pos, features.plot = c("PECAM1", "CD3
 ```
 
 
-#### (CD31+) Generate separate TSNEs for each sample
+(CD31+) Generate separate TSNEs for each sample
 ```{r}
 library(stringr)
 CD31.circulatingCells.CD31pos<-SetAllIdent(CD31.circulatingCells.CD31pos,id = "orig.ident")
@@ -290,7 +294,7 @@ for (ident in idents){
   }
 ```
 
-#### (CD31+) Generate barplot of cell per cluster
+(CD31+) Generate barplot of cell per cluster
 ```{r fig.height=30, fig.width=20}
 # Counting celltypes in timepoints
 library(tidyr)
@@ -335,7 +339,7 @@ ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= condition))+
 
 
 
-##1.7) perform pre analysis
+##1.7.) perform pre analysis
 this analysis is only for stefanie to confirm the previous results. 
 ```{r}
 Path.PatientData.CD31.circulatingCells <- c(
@@ -472,8 +476,8 @@ ggarrange(plotlist = plotList[1])
 
 
 #3.)Unimputed Data (Separated by Run)
-## 3.1) First Run
-###3.1.1) Import packages
+## 3.1.) First Run
+###3.1.1.) Import packages
 ```{r message=FALSE}
 #load libraries
 library(dplyr)
@@ -490,7 +494,7 @@ sink(file = logFile, append = TRUE, split = TRUE)
 ```
 
 
-## 1.2) Define static parameters
+## 1.2.) Define static parameters
 ```{r}
 #Static Parameters 
 #CD34 Cells excluded for now
@@ -520,8 +524,8 @@ Samplenames.PatientData <- c("Ctrl-Young-2","Ctrl-Young-3","Ctrl-Young-4",
 
 
 
-## 3.2) Second Run
-###3.2.1) Import packages
+## 3.2.) Second Run
+###3.2.1.) Import packages
 ```{r message=FALSE}
 #load libraries
 library(dplyr)
@@ -539,9 +543,8 @@ sink(file = logFile, append = TRUE, split = TRUE)
 ```
 
 
-## 3.2.2) Define static parameters
+## 3.2.2.) Define static parameters
 ```{r}
-outputFolder="/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/" 
 
 
 
@@ -569,12 +572,12 @@ Samplenames.PatientData <- c("HF-1","HF-2","HF-3",
                              )
 ```
 
-## 3.2.3) Impute the dataset
+## 3.2.3.) Impute the dataset
 ```{r}
 #imputeData(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData, cluster = 20, ncores = 20)
 ```
 
-## 3.2.4) import and combine the raw cellranger counts with CCA
+## 3.2.4.) import and combine the raw cellranger counts with CCA
 ```{r}
 CD31.circulatingCells <- combineSeuratObjectsCCA(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData)
 
@@ -588,20 +591,8 @@ CD31.circulatingCells <- RunTSNE(object = CD31.circulatingCells, dims.use = 1:11
 ```
 
 
-
-
-```{r}
-save(CD31.circulatingCells,file = paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData"))
-```
-
-```{r}
-
-load(file=paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData"))
-```
-
-
-## 3.2.5)generate TSNE Plots
-####All Samples combined
+## 3.2.5.)generate TSNE Plots
+All Samples combined
 ```{r}
 CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
 TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE, do.label = TRUE, label.size = 9)
@@ -614,7 +605,7 @@ CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "condit
 TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE)
 ```
 
-####Separated by condition
+Separated by condition
 ```{r}
 condition<-c()
 for (barcode in colnames(CD31.circulatingCells@data)) {
@@ -632,7 +623,7 @@ CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "condit
 TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.01, do.return=TRUE)
 ```
 
-####Separated by condition colored by cluster
+Separated by condition colored by cluster
 ```{r}
 CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells,id = "res.0.6")
 for (ident in unique(CD31.circulatingCells@meta.data$condition)){
@@ -642,7 +633,7 @@ for (ident in unique(CD31.circulatingCells@meta.data$condition)){
   }
 ```
 
-####Separated by Patient colored by cluster
+Separated by Patient colored by cluster
 ```{r}
 library(stringr)
 CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells,id = "orig.ident")
@@ -662,13 +653,13 @@ for (ident in idents){
   }
 ```
 
-####Colored by Mutations
+Colored by Mutations
 ```{r}
 TSNEPlot(object = CD31.circulatingCells.s, label=T, pt.size = 2.1, group.by="orig.ident", colors.use = c("green","green","green","grey","blue","blue","blue","blue","blue","red","orange","orange","pink","orange","orange","orange","orange","pink","green","green"))
 ```
 
 
-## 3.2.6) Barplot of cell per cluster
+## 3.2.6.) Barplot of cell per cluster
 ```{r fig.height=10, fig.width=15}
 # Counting celltypes in timepoints
 library(tidyr)
@@ -709,14 +700,19 @@ dev.off()
 
 ```
 
-####Save File
+##save
 ```{r}
+outputFolder="/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/" 
 save(CD31.circulatingCells,file = paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData"))
 ```
 
+```{r}
 
-## 3.2.7 DEG's
-### 3.2.7.1) Cluster specific markers
+load(file=paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData"))
+```
+
+## 3.2.7.) DEG's
+### 3.2.7.1.) Cluster specific markers
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
 CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, only.pos = TRUE)
@@ -733,7 +729,7 @@ VlnPlot(object = CD31.circulatingCells, features.plot = din)
 ```
 
 
-### 3.2.7.2) DEGs HF vs CTRL-Aged
+### 3.2.7.2.) DEGs HF vs CTRL-Aged
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
 CD31.circulatingCells.CtrlAgedvsHF.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "Ctrl-Aged", ident.2 = "HF")
@@ -796,7 +792,7 @@ VlnPlot(object = CD31.circulatingCells, features.plot = rownames(topDown))
 
 
 
-### 3.2.7.3) DEG Old vs Young 
+### 3.2.7.3.) DEG Old vs Young 
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
 CD31.circulatingCells.YoungvsOld.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "Ctrl-Young", ident.2 = "Ctrl-Aged")
@@ -806,12 +802,12 @@ dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logF
 write.csv(CD31.circulatingCells.markers,file = paste0(outputFolder,"ClusterSpecificMarkers.CtrlYoung-vs-CtrlAged.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
 ```
 
-## 3.2.8) Trajectory
+## 3.2.8.) Trajectory
 ```{r}
 library(monocle)
 ```
 
-### 3.2.8.1 Import to Monocle
+### 3.2.8.1.) Import to Monocle
 ```{r}
 require(monocle)
 CD31.circulatingCells.Monocle <- importCDS(CD31.circulatingCells)
@@ -897,7 +893,7 @@ diffGenesControlDisease <- CD31.circulatingCells.Monocle[row.names(subset(fData(
 plot_genes_jitter(diffGenesControlDisease, grouping = "condition", color_by = "condition", nrow= 1, ncol = 5, plot_trend = TRUE, relative_expr = T)
 ```
 
-### 3.2.8.2 Create Cell Trajectory
+### 3.2.8.2.) Create Cell Trajectory
 ```{r}
 #select the top 1000 significant genes as the ordering genes.
 H1_ordering_genes <-  row.names(diffGenesCondition)[order(diffGenesCondition$qval)][1:1000]
@@ -937,7 +933,7 @@ plot_cell_trajectory(CD31.circulatingCells.Monocle, color_by = "patient_id", mar
 
 
 
-### 3.2.8.3 Find trajectory specific genes
+### 3.2.8.3.) Find trajectory specific genes
 ```{r}
 BEAM_res <- BEAM(CD31.circulatingCells.Monocle, branch_point = 1, cores = 1);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
 BEAM_res_all<-data.frame(BEAM_res,branchPoint=1)
@@ -967,7 +963,7 @@ plot_genes_in_pseudotime(cds_subset, color_by = "condition")
 ```
 
 
-## 3.2.9 Trajectory of CD14+ Cells (Classical Monocytes)
+## 3.2.8.4.) Trajectory of CD14+ Cells (Classical Monocytes)
 ```{r}
 FeaturePlot(CD31.circulatingCells, features.plot = c("CD14"))
 CD14.Monocytes <- SubsetData(object = CD31.circulatingCells, ident.use = c("1","4","5","7"))
@@ -1060,6 +1056,66 @@ plot_cell_trajectory(CD14.Monocytes.Monocle, color_by = "patient_id") + facet_wr
 ```
 
 
+#_
+###3.2.9.Circ Res Paper
+```{r}
+load("/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData")
+
+#remove CTRL_YOUNG1, HF-1,HF-2,HF-7
+CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells,id = "orig.ident")
+CircRes_Cohort2<-SubsetData(CD31.circulatingCells,ident.use = c("Ctrl-Aged-1","Ctrl-Aged-2","Ctrl-Aged-3","HF-3","HF-4","HF-5","HF-6"))
+
+```
+
+```{r}
+save(CircRes_Cohort2,file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.circRes.RData")
+load("/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.circRes.RData")
+```
+
+Recluster
+```{r}
+CircRes_Cohort2 <- FindVariableGenes(object = CircRes_Cohort2, do.recalc = T)
+CircRes_Cohort2 <- RunPCA(object = CircRes_Cohort2, features = VariableFeatures(object = CircRes_Cohort2), verbose = TRUE)
+CircRes_Cohort2<-ProjectPCA(object = CircRes_Cohort2, do.print = FALSE)
+PCHeatmap(object = CircRes_Cohort2, pc.use = 1:14, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+CircRes_Cohort2 <- FindClusters(object = CircRes_Cohort2, reduction.type = "pca", dims.use = 1:7, resolution = 0.6, save.SNN = TRUE, force.recalc = T)
+PrintFindClustersParams(object = CircRes_Cohort2)
+CircRes_Cohort2 <- RunTSNE(object = CircRes_Cohort2, dims.use = 1:7, do.label=TRUE)
+```
+
+Plots
+```{r}
+#CircRes_Cohort2<-SetAllIdent(object = CircRes_Cohort2, id = "res.0.6")
+VlnPlot(CircRes_Cohort2, features.plot = "PECAM1")
+FeaturePlot(object = CircRes_Cohort2,features.plot = c("FUT4","ELANE","CEACAM1"))
+TSNEPlot(CircRes_Cohort2, do.label = T)
+```
+
+select CD31+ cells
+```{r}
+CircRes_Cohort2_CD31Pos <- SubsetData(CircRes_Cohort2, subset.name = "PECAM1", accept.low = 0.001)
+CircRes_Cohort2_CD31Pos <- FindVariableGenes(object = CircRes_Cohort2_CD31Pos, do.recalc = T)
+CircRes_Cohort2_CD31Pos <- RunPCA(object = CircRes_Cohort2_CD31Pos, features = VariableFeatures(object = CircRes_Cohort2_CD31Pos), verbose = TRUE)
+CircRes_Cohort2_CD31Pos<-ProjectPCA(object = CircRes_Cohort2_CD31Pos, do.print = FALSE)
+PCHeatmap(object = CircRes_Cohort2_CD31Pos, pc.use = 1:14, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+CircRes_Cohort2_CD31Pos <- FindClusters(object = CircRes_Cohort2_CD31Pos, reduction.type = "pca", dims.use = 1:7, resolution = 0.6, save.SNN = TRUE, force.recalc = T)
+PrintFindClustersParams(object = CircRes_Cohort2_CD31Pos)
+CircRes_Cohort2_CD31Pos <- RunTSNE(object = CircRes_Cohort2_CD31Pos, dims.use = 1:4, do.label=TRUE)
+```
+
+Plots
+```{r}
+#Neutrophil Markers
+VlnPlot(CircRes_Cohort2_CD31Pos, features.plot = c("FUT4","ELANE","CEACAM1"))
+FeaturePlot(object = CircRes_Cohort2_CD31Pos,features.plot = c("FUT4","ELANE","CEACAM1"))
+
+#Monocyte Markers
+VlnPlot(CircRes_Cohort2_CD31Pos, features.plot = c("CD14","CD68","CD163"))
+FeaturePlot(object = CircRes_Cohort2_CD31Pos,features.plot = c("CD14","CD68","CD163"))
+TSNEPlot(CircRes_Cohort2_CD31Pos, do.label = T)
+```
+
+#_
 
 #4.) Imputed Data (Separated By run)
 ##4.1.) First Run 
@@ -1068,7 +1124,7 @@ plot_cell_trajectory(CD14.Monocytes.Monocle, color_by = "patient_id") + facet_wr
 
 ##4.2.) Second run
 
-###4.2.1) Import packages
+###4.2.1.) Import packages
 ```{r message=FALSE}
 #load libraries
 library(dplyr)
@@ -1086,7 +1142,7 @@ sink(file = logFile, append = TRUE, split = TRUE)
 ```
 
 
-## 4.2.2) Define static parameters
+## 4.2.2.) Define static parameters
 ```{r}
 outputFolder="/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Imputed/SeparatedByRun/SecondRun/" 
 
@@ -1152,7 +1208,7 @@ TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.label = T)
 
 ```
 
-## 3.1.5)generate TSNE Plots
+## 3.1.5.)generate TSNE Plots
 ```{r}
 CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
 TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE, do.label = TRUE, label.size = 9)
@@ -1165,7 +1221,7 @@ CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "condit
 TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE)
 ```
 
-####Separated by condition
+Separated by condition
 ```{r}
 condition<-c()
 for (barcode in colnames(CD31.circulatingCells@data)) {
@@ -1183,7 +1239,7 @@ CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "condit
 TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.01, do.return=TRUE)
 ```
 
-####Separated by condition colored by cluster
+Separated by condition colored by cluster
 ```{r}
 CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells,id = "res.0.6")
 for (ident in unique(CD31.circulatingCells@meta.data$condition)){
@@ -1193,7 +1249,7 @@ for (ident in unique(CD31.circulatingCells@meta.data$condition)){
   }
 ```
 
-####Separated by Patient colored by cluster
+Separated by Patient colored by cluster
 ```{r}
 library(stringr)
 CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells,id = "orig.ident")
@@ -1213,7 +1269,7 @@ for (ident in idents){
   }
 ```
 
-## 3.1.6) Barplot of cell per cluster
+## 3.1.6.) Barplot of cell per cluster
 ```{r fig.height=10, fig.width=15}
 # Counting celltypes in timepoints
 library(tidyr)
@@ -1254,14 +1310,14 @@ dev.off()
 
 ```
 
-####Save File
+#Save File
 ```{r}
 save(CD31.circulatingCells,file = paste0(outputFolder,"Wesley-PatientData-circulatingCells.imputed.SeparatedByRun.SecondRun.RData"))
 ```
 
 
-## 3.1.7 DEG's
-### 3.1.7.1) Cluster specific markers
+## 3.1.7.) DEG's
+### 3.1.7.1.) Cluster specific markers
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
 CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, only.pos = TRUE)
@@ -1278,7 +1334,7 @@ VlnPlot(object = CD31.circulatingCells, features.plot = c("MALAT1"))
 ```
 
 
-### 3.1.7.2) DEGs HF vs CTRL-Aged
+### 3.1.7.2.) DEGs HF vs CTRL-Aged
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
 CD31.circulatingCells.CtrlAgedvsHF.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "Ctrl-Aged", ident.2 = "HF")
@@ -1341,7 +1397,7 @@ VlnPlot(object = CD31.circulatingCells, features.plot = rownames(topDown))
 
 
 
-### 3.1.7.3) DEG Old vs Young 
+### 3.1.7.3.) DEG Old vs Young 
 ```{r}
 CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
 CD31.circulatingCells.YoungvsOld.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "Ctrl-Young", ident.2 = "Ctrl-Aged")
@@ -1351,3 +1407,7 @@ dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logF
 write.csv(CD31.circulatingCells.markers,file = paste0(outputFolder,"ClusterSpecificMarkers.CtrlYoung-vs-CtrlAged.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
 ```
 
+#Save
+```{r}
+save(CD31.circulatingCells,file = paste0(outputFolder,"Wesley-PatientData-circulatingCells.imputed.SeparatedByRun.SecondRun.RData"))
+```
