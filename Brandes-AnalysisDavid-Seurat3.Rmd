@@ -8,7 +8,7 @@ output: html_notebook
 #load libraries
 library(dplyr)
 library(ggpubr)
-
+library(Seurat)
 require(scales)
 
 
@@ -85,6 +85,10 @@ SeuratObject.combined <- FindClusters(SeuratObject.combined, resolution = 0.5)
 save(SeuratObject.combined,file = paste0(outputFolder,"Brandes.RData"))
 ```
 
+```{r}
+load(file = paste0(outputFolder,"Brandes.RData"))
+```
+
 ## 3.1.5)generate TSNE Plots
 ####All Samples combined
 ```{r fig.height=10, fig.width=20}
@@ -98,6 +102,11 @@ plot_grid(p1,p2)
 DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE, split.by = "orig.ident")
 
 ```
+
+```{r}
+FeaturePlot(object = SeuratObject.combined, features = c("Pecam1","Dcn","Vwf","Ccl5"))
+```
+
 
 ## 3.1.6) Barplot of cell per cluster
 ```{r fig.height=10, fig.width=15}
@@ -144,8 +153,11 @@ dev.off()
 ##3.1.7. Find Cluster specific Markers
 ```{r}
 SeuratObject.combined.markers <- FindAllMarkers(object = SeuratObject.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
-top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 20, wt = avg_logFC)
+top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
 write.csv(top20, file = paste0(outputFolder,"top20ClusterMarkers.csv"))
+top20
 
 ```
+
+
 

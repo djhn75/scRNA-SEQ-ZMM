@@ -484,7 +484,7 @@ library(dplyr)
 library(ggpubr)
 
 require(scales)
-
+library(Seurat)
 logFile="/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/FirstRun/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.rmd.log"
 if (file.exists(logFile)) {
   #file.remove(logFile)
@@ -1064,7 +1064,6 @@ load("/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRu
 #remove CTRL_YOUNG1, HF-1,HF-2,HF-7
 CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells,id = "orig.ident")
 CircRes_Cohort2<-SubsetData(CD31.circulatingCells,ident.use = c("Ctrl-Aged-1","Ctrl-Aged-2","Ctrl-Aged-3","HF-3","HF-4","HF-5","HF-6"))
-
 ```
 
 ```{r}
@@ -1114,6 +1113,54 @@ VlnPlot(CircRes_Cohort2_CD31Pos, features.plot = c("CD14","CD68","CD163"))
 FeaturePlot(object = CircRes_Cohort2_CD31Pos,features.plot = c("CD14","CD68","CD163"))
 TSNEPlot(CircRes_Cohort2_CD31Pos, do.label = T)
 ```
+
+Get percentage of Neutrophil Marker positive cells
+```{r}
+CircRes_Cohort2_CD31Pos.Fut4Pos <-SubsetData(CircRes_Cohort2_CD31Pos, subset.name = "FUT4", accept.low = 0.01)
+
+V<- CircRes_Cohort2_CD31Pos.Fut4Pos@meta.data
+orig.ident.ordered<-str_sort(unique(CircRes_Cohort2_CD31Pos.Fut4Pos@meta.data$orig.ident),numeric = TRUE)
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$res.0.6<-factor(V$res.0.6,levels = c(0:length(unique(CircRes_Cohort2_CD31Pos.Fut4Pos@meta.data$res.0.6))))
+
+Summary.Celltypes <- V %>% count(orig.ident,res.0.6,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(res.0.6,fill = list(n=0,freq=0))
+
+Summary.Celltypes$res.0.6 <- factor(Summary.Celltypes$res.0.6)
+condition<-c()
+for (x in Summary.Celltypes$orig.ident) {
+  tmp<-unlist(strsplit(x,split = "-"))
+  cx<-paste0(tmp[1:length(tmp)-1],collapse = "-")
+  
+  condition<-c(condition,cx)
+  
+}
+Summary.Celltypes$condition<-condition
+
+svg(filename = paste0(outputFolder,"/Barplot-CellsperClusterPerSample.svg"),width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= condition))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~res.0.6, nrow = 4, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+dev.off()
+
+```
+
+
+
+DEG CTRL vs HF
+```{r}
+CircRes_Cohort2_CD31Pos <- SetAllIdent(object = CircRes_Cohort2_CD31Pos, id = "condition")
+CircRes_Cohort2_CD31Pos.Markers.OldYoung <- FindAllMarkers(CircRes_Cohort2_CD31Pos)
+```
+
+```{r}
+save(CircRes_Cohort2_CD31Pos,file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.circRes.CD31+.RData")
+```
+
+
 
 #_
 
