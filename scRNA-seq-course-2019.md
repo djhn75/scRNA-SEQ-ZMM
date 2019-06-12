@@ -6,20 +6,28 @@ date: "12 6 2019"
 
 
 # 1.) Install required Software
-## 1.1.) Install Rstudio
-To install Rstudio please follow the link and install the right RStudio for your operating system.
-<https://www.rstudio.com/products/rstudio/download/#download>
-*Ubuntu
+## 1.2.) Install R
+1. Windows: <https://cran.rstudio.com/bin/windows/base/>
+2. Mac:<https://cran.rstudio.com/bin/macosx/>
+3. Linux: Please run the following commands in the terminal 
 ```{shell}
-sudo apt-get install rstudio
-````
-<http://rmarkdown.rstudio.com>.
+sudo add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/'
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E084DAB9
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+sudo apt update
+
+sudo apt install r-base r-base-core r-recommended
 ```
+
+
+## 1.2.) Install Rstudio
+To install RStudio please follow the link and install the right RStudio for your operating system.
+
+1. Windows: <https://www.rstudio.com/products/rstudio/download/#download>
+2. Mac:<https://www.rstudio.com/products/rstudio/download/#download>
+3. Linux: <https://www.rstudio.com/products/rstudio/download/#download>
+
 
 ```{r cars}
 summary(cars)
