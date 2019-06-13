@@ -87,7 +87,7 @@ Detailed informations about this dataset can be found here:
 
 
 
-#3.) Analyze 2700 PBMCs)
+#3.) Analyze 2700 PBMCs
 
 ##3.1.) Import to Seurat
 ```{r}
@@ -103,6 +103,7 @@ pbmc3k_v1 <- CreateSeuratObject(counts = tmp.object, project = "pbmc3k_v1", min.
 ##3.1.) Pre-processing The Raw data
 
 ###3.1.1.) QC and selecting cells for further analysis
+
 The steps below encompass the standard pre-processing workflow for scRNA-seq data in Seurat. These represent the selection and filtration of cells based on QC metrics, data normalization and scaling, and the detection of highly variable features.
 QC and selecting cells for further analysis
 
@@ -140,6 +141,7 @@ pbmc3k_v1 <- subset(pbmc3k_v1, subset = nFeature_RNA > 200 & nFeature_RNA < 2500
 ```
 
 ###3.1.2.) Normalizing the data 
+
 After removing unwanted cells from the dataset, the next step is to normalize the data. By default, we employ a global-scaling normalization method “LogNormalize” that normalizes the feature expression measurements for each cell by the total expression, multiplies this by a scale factor (10,000 by default), and log-transforms the result. Normalized values are stored in `pbmc[["RNA"]]@data`.
 
 ```{r}
@@ -148,6 +150,7 @@ pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor 
 
 
 ###3.1.3.) Identification of highly variable features (feature selection)
+
 We next calculate a subset of features that exhibit high cell-to-cell variation in the dataset (i.e, they are highly expressed in some cells, and lowly expressed in others). We and others have found that focusing on these genes in downstream analysis helps to highlight biological signal in single-cell datasets.
 
 Our procedure in Seurat3 is described in detail here, and improves on previous versions by directly modeling the mean-variance relationship inherent in single-cell data, and is implemented in the `FindVariableFeatures` function. By default, we return 2,000 features per dataset. These will be used in downstream analysis, like PCA.
@@ -165,6 +168,7 @@ CombinePlots(plots = list(plot1, plot2))
 
 
 ###3.1.3.) Scaling the data
+
 Next, we apply a linear transformation (‘scaling’) that is a standard pre-processing step prior to dimensional reduction techniques like PCA. The ScaleData function:
 
   *Shifts the expression of each gene, so that the mean expression across cells is 0
@@ -178,6 +182,7 @@ pbmc <- ScaleData(pbmc, vars.to.regress = "percent.mt")
 
 ##3.2.) Clustering 
 ###3.2.1.) Perform linear dimensional reduction
+
 Next we perform PCA on the scaled data. By default, only the previously determined variable features are used as input, but can be defined using features argument if you wish to choose a different subset.
 
 Seurat provides several useful ways of visualizing both cells and features that define the PCA, including `VizDimReduction`, `DimPlot`, and `DimHeatmap`
@@ -204,6 +209,7 @@ We chose 10 here, but encourage users to consider the following:
 
 
 ###3.2.2.) Cluster the cells
+
 Seurat v3 applies a graph-based clustering approach, building upon initial strategies in (Macosko et al). Importantly, the distance metric which drives the clustering analysis (based on previously identified PCs) remains the same. However, our approach to partioning the cellular distance matrix into clusters has dramatically improved. Our approach was heavily inspired by recent manuscripts which applied graph-based clustering approaches to scRNA-seq data [SNN-Cliq, Xu and Su, Bioinformatics, 2015] and CyTOF data [PhenoGraph, Levine et al., Cell, 2015]. Briefly, these methods embed cells in a graph structure - for example a K-nearest neighbor (KNN) graph, with edges drawn between cells with similar feature expression patterns, and then attempt to partition this graph into highly interconnected ‘quasi-cliques’ or ‘communities’.
 
 As in PhenoGraph, we first construct a KNN graph based on the euclidean distance in PCA space, and refine the edge weights between any two cells based on the shared overlap in their local neighborhoods (Jaccard similarity). This step is performed using the FindNeighbors function, and takes as input the previously defined dimensionality of the dataset (first 10 PCs).
@@ -222,6 +228,7 @@ head(Idents(pbmc), 5)
 
 
 ###3.2.3.) Run non-linear dimensional reduction (UMAP/tSNE)
+
 Seurat offers several non-linear dimensional reduction techniques, such as tSNE and UMAP, to visualize and explore these datasets. The goal of these algorithms is to learn the underlying manifold of the data in order to place similar cells together in low-dimensional space. Cells within the graph-based clusters determined above should co-localize on these dimension reduction plots. As input to the UMAP and tSNE, we suggest using the same PCs as input to the clustering analysis.
 ```{r}
 # If you haven't installed UMAP, you can do so via reticulate::py_install(packages =
@@ -244,6 +251,7 @@ saveRDS(pbmc, file = "../output/pbmc_tutorial.rds")
 
 
 ###3.2.4.) Finding differentially expressed features (cluster biomarkers)
+
 Seurat can help you find markers that define clusters via differential expression. By default, it identifes positive and negative markers of a single cluster (specified in ident.1), compared to all other cells. FindAllMarkers automates this process for all clusters, but you can also test groups of clusters vs. each other, or against all cells.
 
 The min.pct argument requires a feature to be detected at a minimum percentage in either of the two groups of cells, and the thresh.test argument requires a feature to be differentially expressed (on average) by some amount between the two groups. You can set both of these to 0, but with a dramatic increase in time - since this will test a large number of features that are unlikely to be highly discriminatory. As another option to speed up these computations, max.cells.per.ident can be set. This will downsample each identity class to have no more cells than whatever this is set to. While there is generally going to be a loss in power, the speed increases can be significiant and the most highly differentially expressed features will likely still rise to the top.
@@ -268,6 +276,7 @@ pbmc.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
 
 
 ###3.2.5 Plot DEG's
+
 We include several tools for visualizing marker expression. VlnPlot (shows expression probability distributions across clusters), and FeaturePlot (visualizes feature expression on a tSNE or PCA plot) are our most commonly used visualizations. We also suggest exploring RidgePlot, CellScatter, and DotPlot as additional methods to view your dataset.
 
 ```{r}
@@ -293,6 +302,7 @@ DoHeatmap(pbmc, features = top10$gene) + NoLegend()
 
 
 ###3.2.1.) Assigning cell type identity to clusters
+
 Fortunately in the case of this dataset, we can use canonical markers to easily match the unbiased clustering to known cell types:
 ```{r}
 new.cluster.ids <- c("Naive CD4 T", "Memory CD4 T", "CD14+ Mono", "B", "CD8 T", "FCGR3A+ Mono", 
