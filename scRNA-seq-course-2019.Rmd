@@ -308,7 +308,4 @@ saveRDS(pbmc, file = "../output/pbmc3k_final.rds")
 
 
 
-##3.1.) Import to Seurat
-
-
 
