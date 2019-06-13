@@ -47,6 +47,7 @@ install.packages("ggplot2")
 install.packages("stringr")
 ```
 
+
 ## 1.4.) Test the required R-packages
 
 To test all installed packages, run each command individually. 
