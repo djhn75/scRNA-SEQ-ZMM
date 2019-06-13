@@ -7,6 +7,7 @@ date: "12 6 2019"
 
 # 1.) Install required Software
 ## 1.2.) Install R
+
 1. Windows: <https://cran.rstudio.com/bin/windows/base/>
 2. Mac:<https://cran.rstudio.com/bin/macosx/>
 3. Linux: Please run the following commands in the terminal
@@ -21,6 +22,7 @@ sudo apt install r-base r-base-core r-recommended
 ```
 
 ## 1.2.) Install Rstudio
+
 To install RStudio please follow the link and install the right RStudio for your operating system.
 
 1. Windows: <https://download1.rstudio.org/desktop/windows/RStudio-1.2.1335.exe>
@@ -28,6 +30,7 @@ To install RStudio please follow the link and install the right RStudio for your
 3. Linux: <https://www.rstudio.com/products/rstudio/download/#download>
 
 ## 1.3.) Install required R-packages
+
 For or training we will need the following R packages, which can be installed by the following R commands
 ```{r}
 # Enter commands in R (or R studio, if installed)
@@ -42,10 +45,10 @@ install.packages("ggpubr")
 install.packages("scales")
 install.packages("ggplot2")
 install.packages("stringr")
-
 ```
 
 ## 1.4.) Test the required R-packages
+
 To test all installed packages, run each command individually. 
 If the installed package are loaded witout any error message, the package was installed sucessfully. 
 ```{r}
@@ -59,6 +62,7 @@ library(ggplot2)
 ```
 
 #2.) Download The required Datasets
+
 During this course we will analyse 3 datasets. Two are punlished healthy PBMC's from 10x and one is our data, from a heart failure patient of the university clinic Frankfurt.
 1.) 2700 PBMCs (v1 Chemistry, healthy) 
 *(Details: <https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.1.0/pbmc3k>)
@@ -69,6 +73,7 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 
 
 ##2.1.) Load the Datasets
+
 For this course, we will be analyzing the a dataset of Peripheral Blood Mononuclear Cells (PBMC) freely available from 10X Genomics. 
 There are 2,700 single cells that were sequenced on the Illumina NextSeq 500. The raw data can be found here.
 
@@ -90,6 +95,7 @@ Detailed informations about this dataset can be found here:
 #3.) Analyze 2700 PBMCs
 
 ##3.1.) Import to Seurat
+
 ```{r}
 library(dplyr)
 library(Seurat)
