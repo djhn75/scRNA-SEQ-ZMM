@@ -132,10 +132,10 @@ pbmc3k_v1 <- subset(pbmc3k_v1, subset = nFeature_RNA > 200 & nFeature_RNA < 2500
 ```
 
 ###3.1.2.) Normalizing the data 
-After removing unwanted cells from the dataset, the next step is to normalize the data. By default, we employ a global-scaling normalization method “LogNormalize” that normalizes the feature expression measurements for each cell by the total expression, multiplies this by a scale factor (10,000 by default), and log-transforms the result. Normalized values are stored in `pbmc[["RNA"]]@data`.
+After removing unwanted cells from the dataset, the next step is to normalize the data. By default, we employ a global-scaling normalization method “LogNormalize” that normalizes the feature expression measurements for each cell by the total expression, multiplies this by a scale factor (10,000 by default), and log-transforms the result. Normalized values are stored in `pbmc3k_v1[["RNA"]]@data`.
 
 ```{r}
-pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor = 10000)
+pbmc3k_v1 <- NormalizeData(pbmc3k_v1, normalization.method = "LogNormalize", scale.factor = 10000)
 ```
 
 
@@ -144,13 +144,13 @@ We next calculate a subset of features that exhibit high cell-to-cell variation 
 
 Our procedure in Seurat3 is described in detail here, and improves on previous versions by directly modeling the mean-variance relationship inherent in single-cell data, and is implemented in the `FindVariableFeatures` function. By default, we return 2,000 features per dataset. These will be used in downstream analysis, like PCA.
 ```{r}
-pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
+pbmc3k_v1 <- FindVariableFeatures(pbmc3k_v1, selection.method = "vst", nfeatures = 2000)
 
 # Identify the 10 most highly variable genes
-top10 <- head(VariableFeatures(pbmc), 10)
+top10 <- head(VariableFeatures(pbmc3k_v1), 10)
 
 # plot variable features with and without labels
-plot1 <- VariableFeaturePlot(pbmc)
+plot1 <- VariableFeaturePlot(pbmc3k_v1)
 plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
 CombinePlots(plots = list(plot1, plot2))
 ```
@@ -162,9 +162,9 @@ Next, we apply a linear transformation (‘scaling’) that is a standard pre-pr
   *Shifts the expression of each gene, so that the mean expression across cells is 0
   *Scales the expression of each gene, so that the variance across cells is 1
     *This step gives equal weight in downstream analyses, so that highly-expressed genes do not dominate
-  *The results of this are stored in `pbmc[["RNA"]]@scale.data`
+  *The results of this are stored in `pbmc3k_v1[["RNA"]]@scale.data`
 ```{r}
-pbmc <- ScaleData(pbmc, vars.to.regress = "percent.mt")
+pbmc3k_v1 <- ScaleData(pbmc3k_v1, vars.to.regress = "percent.mt")
 ```
 
 
@@ -175,15 +175,15 @@ Next we perform PCA on the scaled data. By default, only the previously determin
 Seurat provides several useful ways of visualizing both cells and features that define the PCA, including `VizDimReduction`, `DimPlot`, and `DimHeatmap`
 
 ```{r}
-pbmc <- RunPCA(pbmc, features = VariableFeatures(object = pbmc))
-VizDimLoadings(pbmc, dims = 1:2, reduction = "pca")
-DimPlot(pbmc, reduction = "pca")
-DimHeatmap(pbmc, dims = 1:15, cells = 500, balanced = TRUE)
+pbmc3k_v1 <- RunPCA(pbmc3k_v1, features = VariableFeatures(object = pbmc3k_v1))
+VizDimLoadings(pbmc3k_v1, dims = 1:2, reduction = "pca")
+DimPlot(pbmc3k_v1, reduction = "pca")
+DimHeatmap(pbmc3k_v1, dims = 1:15, cells = 500, balanced = TRUE)
 ```
 
 An alternative heuristic method generates an ‘Elbow plot’: a ranking of principle components based on the percentage of variance explained by each one (`ElbowPlot` function). In this example, we can observe an ‘elbow’ around PC9-10, suggesting that the majority of true signal is captured in the first 10 PCs.
 ```{r}
-ElbowPlot(pbmc)
+ElbowPlot(pbmc3k_v1)
 
 ```
 Identifying the true dimensionality of a dataset – can be challenging/uncertain for the user. We therefore suggest these three approaches to consider. The first is more supervised, exploring PCs to determine relevant sources of heterogeneity, and could be used in conjunction with GSEA for example. The second implements a statistical test based on a random null model, but is time-consuming for large datasets, and may not return a clear PC cutoff. The third is a heuristic that is commonly used, and can be calculated instantly. In this example, all three approaches yielded similar results, but we might have been justified in choosing anything between PC 7-12 as a cutoff.
@@ -202,13 +202,13 @@ As in PhenoGraph, we first construct a KNN graph based on the euclidean distance
 
 To cluster the cells, we next apply modularity optimization techniques such as the Louvain algorithm (default) or SLM [SLM, Blondel et al., Journal of Statistical Mechanics], to iteratively group cells together, with the goal of optimizing the standard modularity function. The FindClusters function implements this procedure, and contains a resolution parameter that sets the ‘granularity’ of the downstream clustering, with increased values leading to a greater number of clusters. We find that setting this parameter between 0.4-1.2 typically returns good results for single-cell datasets of around 3K cells. Optimal resolution often increases for larger datasets. The clusters can be found using the Idents function.
 ```{r}
-pbmc <- FindNeighbors(pbmc, dims = 1:10)
-pbmc <- FindClusters(pbmc, resolution = 0.5)
+pbmc3k_v1 <- FindNeighbors(pbmc3k_v1, dims = 1:10)
+pbmc3k_v1 <- FindClusters(pbmc3k_v1, resolution = 0.5)
 ```
 
 ```{r}
 # Look at cluster IDs of the first 5 cells
-head(Idents(pbmc), 5)
+head(Idents(pbmc3k_v1), 5)
 ```
 
 
@@ -218,19 +218,19 @@ Seurat offers several non-linear dimensional reduction techniques, such as tSNE 
 ```{r}
 # If you haven't installed UMAP, you can do so via reticulate::py_install(packages =
 # 'umap-learn')
-pbmc <- RunUMAP(pbmc, dims = 1:10)
+pbmc3k_v1 <- RunUMAP(pbmc3k_v1, dims = 1:10)
 ```
 
 ```{r}
 # note that you can set `label = TRUE` or use the LabelClusters function to help label
 # individual clusters
-DimPlot(pbmc, reduction = "umap")
+DimPlot(pbmc3k_v1, reduction = "umap")
 ```
 
 #####Save
 You can save the object at this point so that it can easily be loaded back in without having to rerun the computationally intensive steps performed above, or easily shared with collaborators.
 ```{r}
-saveRDS(pbmc, file = "../output/pbmc_tutorial.rds")
+saveRDS(pbmc3k_v1, file = "../output/pbmc3k_v1.rds")
 ```
 
 
@@ -242,20 +242,20 @@ The min.pct argument requires a feature to be detected at a minimum percentage i
 
 ```{r}
 # find all markers of cluster 1
-cluster1.markers <- FindMarkers(pbmc, ident.1 = 1, min.pct = 0.25)
+cluster1.markers <- FindMarkers(pbmc3k_v1, ident.1 = 1, min.pct = 0.25)
 head(cluster1.markers, n = 5)
 ```
 
 ```{r}
 # find all markers distinguishing cluster 5 from clusters 0 and 3
-cluster5.markers <- FindMarkers(pbmc, ident.1 = 5, ident.2 = c(0, 3), min.pct = 0.25)
+cluster5.markers <- FindMarkers(pbmc3k_v1, ident.1 = 5, ident.2 = c(0, 3), min.pct = 0.25)
 head(cluster5.markers, n = 5)
 ```
 
 ```{r}
 # find markers for every cluster compared to all remaining cells, report only the positive ones
-pbmc.markers <- FindAllMarkers(pbmc, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
-pbmc.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
+pbmc3k_v1.markers <- FindAllMarkers(pbmc3k_v1, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+pbmc3k_v1.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
 ```
 
 
@@ -263,24 +263,24 @@ pbmc.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
 We include several tools for visualizing marker expression. VlnPlot (shows expression probability distributions across clusters), and FeaturePlot (visualizes feature expression on a tSNE or PCA plot) are our most commonly used visualizations. We also suggest exploring RidgePlot, CellScatter, and DotPlot as additional methods to view your dataset.
 
 ```{r}
-VlnPlot(pbmc, features = c("MS4A1", "CD79A"))
+VlnPlot(pbmc3k_v1, features = c("MS4A1", "CD79A"))
 ```
 
 ```{r}
 # you can plot raw counts as well
-VlnPlot(pbmc, features = c("NKG7", "PF4"), slot = "counts", log = TRUE)
+VlnPlot(pbmc3k_v1, features = c("NKG7", "PF4"), slot = "counts", log = TRUE)
 ```
 
 ```{r}
-FeaturePlot(pbmc, features = c("MS4A1", "GNLY", "CD3E", "CD14", "FCER1A", "FCGR3A", "LYZ", "PPBP", 
+FeaturePlot(pbmc3k_v1, features = c("MS4A1", "GNLY", "CD3E", "CD14", "FCER1A", "FCGR3A", "LYZ", "PPBP", 
     "CD8A"))
 ```
 
 DoHeatmap generates an expression heatmap for given cells and features. In this case, we are plotting the top 20 markers (or all markers if less than 20) for each cluster.
 
 ```{r}
-top10 <- pbmc.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
-DoHeatmap(pbmc, features = top10$gene) + NoLegend()
+top10 <- pbmc3k_v1.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+DoHeatmap(pbmc3k_v1, features = top10$gene) + NoLegend()
 ```
 
 
@@ -289,14 +289,14 @@ Fortunately in the case of this dataset, we can use canonical markers to easily 
 ```{r}
 new.cluster.ids <- c("Naive CD4 T", "Memory CD4 T", "CD14+ Mono", "B", "CD8 T", "FCGR3A+ Mono", 
     "NK", "DC", "Platelet")
-names(new.cluster.ids) <- levels(pbmc)
-pbmc <- RenameIdents(pbmc, new.cluster.ids)
-DimPlot(pbmc, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
+names(new.cluster.ids) <- levels(pbmc3k_v1)
+pbmc3k_v1 <- RenameIdents(pbmc3k_v1, new.cluster.ids)
+DimPlot(pbmc3k_v1, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
 ```
 
 #####Save
 ```{r}
-saveRDS(pbmc, file = "../output/pbmc3k_final.rds")
+saveRDS(pbmc3k_v1, file = "../output/pbmc3k_v1.rds")
 ```
 
 
