@@ -60,7 +60,7 @@ library(Seurat)
 library(ggplot2)
 ```
 
-#2.) Download The required Datasets
+# 2.) Download The required Datasets
 
 During this course we will analyse 3 datasets. Two are punlished healthy PBMC's from 10x and one is our data, from a heart failure patient of the university clinic Frankfurt.
 1.) 2700 PBMCs (v1 Chemistry, healthy) 
@@ -71,13 +71,13 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 *(V2 Chemistry, heart failure)
 
 
-##2.1.) Load the Datasets
+## 2.1.) Load the Datasets
 ##### TODO:
 - [ ] Download the datasets, save it to your PC and unzip the file:
 <https://drive.google.com/open?id=1yuC4k0aOzs1bmAx6V_yJ3TzpC7bskRUL>
 
 
-##2.2) Load the RScript
+## 2.2) Load the RScript
 -[ ] Download the Rscript (<https://github.com/djhn75/scRNA-SEQ-ZMM/blob/master/scRNA-seq-course-2019.Rmd>) 
 -[ ] Open the file in Rstudio and continue at step 3
 
