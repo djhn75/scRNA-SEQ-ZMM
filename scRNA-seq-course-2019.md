@@ -73,8 +73,8 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 
 ## 2.1.) Load the Datasets
 ##### TODO:
-- [ ] Download the datasets, save it to your PC and unzip the file:
-<https://drive.google.com/open?id=12pafX-R81kVzA2gIj3RCEOzbz_nMmxSb>
+- [ ] Download the datasets, save the folder 'scRNA-SEQ_Coursematerial_2019' to your PC:
+<https://drive.google.com/open?id=1qs-Pwk0vmrjZEOUoz5kvtIsmP1KK0Czs>
 
 
 ## 2.2) Load the RScript
