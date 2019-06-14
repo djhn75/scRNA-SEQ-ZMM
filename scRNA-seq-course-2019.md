@@ -34,10 +34,6 @@ To install RStudio please follow the link and install the right RStudio for your
 For or training we will need the following R packages, which can be installed by the following R commands
 ```{r}
 # Enter commands in R (or R studio, if installed)
-# Install the devtools package from Hadley Wickham
-install.packages('devtools')
-# Replace '2.3.0' with your desired version
-devtools::install_version(package = 'Seurat', version = package_version('2.3.4'))
 
 install.packages("tidyr")
 install.packages("dplyr")
@@ -45,6 +41,8 @@ install.packages("ggpubr")
 install.packages("scales")
 install.packages("ggplot2")
 install.packages("stringr")
+install.packages("Seurat")
+
 ```
 
 
@@ -74,17 +72,9 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 
 
 ##2.1.) Load the Datasets
-
-For this course, we will be analyzing the a dataset of Peripheral Blood Mononuclear Cells (PBMC) freely available from 10X Genomics. 
-There are 2,700 single cells that were sequenced on the Illumina NextSeq 500. The raw data can be found here.
-
-Detailed informations about this dataset can be found here:
-
-
-
 ##### TODO:
 - [ ] Download the datasets, save it to your PC and unzip the file:
-<http://cf.10xgenomics.com/samples/cell-exp/1.1.0/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz>
+<https://drive.google.com/open?id=1yuC4k0aOzs1bmAx6V_yJ3TzpC7bskRUL>
 
 
 ##2.2) Load the RScript
