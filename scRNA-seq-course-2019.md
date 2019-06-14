@@ -63,12 +63,12 @@ library(ggplot2)
 # 2.) Download The required Datasets
 
 During this course we will analyse 3 datasets. Two are punlished healthy PBMC's from 10x and one is our data, from a heart failure patient of the university clinic Frankfurt.
-1.) 2700 PBMCs (v1 Chemistry, healthy) 
-*(Details: <https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.1.0/pbmc3k>)
-2.) 5000 PBMCs (V3 Chemistry, healthy) 
-*(Details: <https://support.10xgenomics.com/single-cell-gene-expression/datasets/3.0.2/5k_pbmc_v3>)
-3.) 1000 CD31 positive cells 
-*(V2 Chemistry, heart failure)
+1. 2700 PBMCs (v1 Chemistry, healthy) 
+* (Details: <https://support.10xgenomics.com/single-cell-gene-expression/datasets/1.1.0/pbmc3k>)
+2. 5000 PBMCs (V3 Chemistry, healthy) 
+* (Details: <https://support.10xgenomics.com/single-cell-gene-expression/datasets/3.0.2/5k_pbmc_v3>)
+3. 1000 CD31 positive cells 
+* (V2 Chemistry, heart failure)
 
 
 ## 2.1.) Load the Datasets
