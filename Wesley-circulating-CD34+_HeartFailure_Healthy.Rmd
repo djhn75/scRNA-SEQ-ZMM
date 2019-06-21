@@ -1,0 +1,191 @@
+---
+title: "Wesley CD34 Seurat3"
+output: html_notebook
+---
+
+#Import Data
+# 1.1) Import packages
+```{r message=FALSE}
+#load libraries
+library(dplyr)
+library(ggpubr)
+library(Seurat)
+
+require(scales)
+
+
+
+source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
+sink(file = "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/Analysis-David-2019/Wesley-circulating-CD34+_HeartFailure_Healthy.rmd.log", append = TRUE, split = TRUE)
+```
+
+
+## 1.2) Define static parameters
+```{r}
+#Static Parameters 
+#CD34 Cells excluded for now
+#"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-010",
+#"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-011",
+#"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-014",
+#"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-016",
+#"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-017",
+
+#"HFpEF","Young_Control",Young_Control","ICM_HFrEF","Young_Control"
+Paths <- c(
+"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/103588-001-010/outs/filtered_feature_bc_matrix",
+"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/103588-001-011/outs/filtered_feature_bc_matrix",
+"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/103588-001-014/outs/filtered_feature_bc_matrix",
+"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/103588-001-016/outs/filtered_feature_bc_matrix",
+"/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/103588-001-017/outs/filtered_feature_bc_matrix"
+)
+Samplenames <- c("HfpEF","YC.1","YC.2","HfrEF","YC.3")
+```
+
+
+
+
+## 1.3) import and combine the raw cellranger counts with CCA
+```{r}
+SeuratObjectList <- list()
+for (i in 1:length(Paths)) {
+  SeuratObjectList[[i]]<-Importer(pathway = Paths[i],id = Samplenames[i])
+}
+```
+
+```{r}
+for (i in 1:length(SeuratObjectList)) {
+  print(i)
+  tmp<-SeuratObjectList[[i]]
+  tmp<-ScaleData(object = tmp)
+  tmp<-RunPCA(object = tmp, verbose = FALSE, ndims.print = 0)
+  DimHeatmap(object = tmp, dims = 1:15, )
+  gg<-ElbowPlot(tmp, ndims = 10) + labs(title=as.character(i))
+  print(gg)
+}
+```
+
+
+```{r}
+CD34.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:20, k.filter = 150)
+CD34.combined <- IntegrateData(anchorset = CD34.anchors, dims = 1:20)
+```
+
+
+```{r}
+DefaultAssay(object = CD34.combined) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+CD34.combined <- ScaleData(object = CD34.combined, verbose = FALSE)
+CD34.combined <- RunPCA(object = CD34.combined, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+CD34.combined <- RunTSNE(object = CD34.combined)
+#CD34.combined <- RunUMAP(object = CD34.combined, reduction = "pca", dims = 1:20)
+CD34.combined <- FindNeighbors(object = CD34.combined, reduction = "pca", dims = 1:10)
+CD34.combined <- FindClusters(CD34.combined, resolution = 0.5)
+```
+
+
+```{r}
+outputFolder <- "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/Analysis-David-2019/"
+save(CD34.combined,file = "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/Analysis-David-2019/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData")
+```
+
+## 3.1.5)generate TSNE Plots
+####All Samples combined
+```{r fig.height=20, fig.width=20}
+require(cowplot)
+# Visualization
+DimPlot(object = CD34.combined, reduction = "tsne", group.by = "condition",pt.size = 2)
+DimPlot(object = CD34.combined, reduction = "tsne", label = TRUE,pt.size = 2)
+DimPlot(object = CD34.combined, reduction = "tsne", group.by = "sample",pt.size = 2)
+plot_grid(p1, p2,p3)
+
+DimPlot(object = CD34.combined, reduction = "tsne", label = TRUE, split.by = "condition")
+p1
+
+```
+
+
+
+
+
+## 3.1.6) Barplot of cell per cluster
+```{r fig.height=10, fig.width=15}
+# Counting celltypes in timepoints
+library(tidyr)
+
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(Seurat)
+library(stringr)
+V<- CD34.combined@meta.data
+orig.ident.ordered<-str_sort(unique(CD34.combined@meta.data$orig.ident),numeric = TRUE)
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$res.0.6<-factor(V$seurat_clusters,levels = c(0:length(unique(CD34.combined@meta.data$seurat_clusters))))
+
+Summary.Celltypes <- V %>% count(orig.ident,res.0.6,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(res.0.6,fill = list(n=0,freq=0))
+
+Summary.Celltypes$res.0.6 <- factor(Summary.Celltypes$res.0.6)
+condition<-c()
+for (x in Summary.Celltypes$orig.ident) {
+  tmp<-unlist(strsplit(x,split = "-"))
+  cx<-paste0(tmp[1:length(tmp)-1],collapse = "-")
+  
+  condition<-c(condition,cx)
+  
+}
+Summary.Celltypes$condition<-condition
+Summary.Celltypes$condition<-
+
+
+svg(filename = paste0(outputFolder,"/Barplot-CellsperClusterPerSample.svg"),width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= orig.ident))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~res.0.6, nrow = 4, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+dev.off()
+
+
+```
+
+####Save File
+```{r}
+save(CD34.combined,file = "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/Analysis-David-2019/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData")
+```
+
+
+
+## 3.1.7) Cluster specific markers
+```{r}
+CD34.combined <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
+CD34.combined.markers <- FindAllMarkers(object = CD34.combined, only.pos = TRUE)
+# --> No DEGs found
+
+dink<-CD34.combined.markers %>% group_by(cluster) %>% top_n(20, avg_logFC)
+write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
+```
+
+## 3.1.8) DEGs HF vs CTRL-Aged
+```{r}
+CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "condition")
+CD31.circulatingCells.markers <- FindMarkers(object = CD31.circulatingCells, only.pos = FALSE, ident.1 = "HF", ident.2 = "Ctrl-Aged")
+# --> No DEGs found
+
+dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logFC)
+write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
+```
+
+
+## 3.1.9) DEG Old vs Young 
+```{r}
+CD31.circulatingCells <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
+CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, only.pos = TRUE)
+# --> No DEGs found
+
+dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logFC)
+write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
+```

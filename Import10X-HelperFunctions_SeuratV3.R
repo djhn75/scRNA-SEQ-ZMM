@@ -19,30 +19,35 @@ FilterDeadCells <- function(seuratObject){
   return(seuratObject)
 }
 
-#' Import Single cell sequencing experiments into Seurat and perform normalisation and scale Data 
+#' Import Single cell sequencing experiments into Seurat3and perform normalisation and scale Data 
 #' @author David John
 #' @param pathways A vector of pathways to the cellrancer count output folder (contains barcodes.tsv, genes.tsv, matrix.mtx)
 #' @param ids Vector of strings that are assigned to the concordant cells
 #' @return Merged seurat object
-Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performVariableGeneDetection=TRUE) {
+Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performScaling = FALSE,performVariableGeneDetection=TRUE) {
   if (TenX) {
     Matrix <- Read10X(pathway)
   }  else{
     Matrix <- read.table(pathway,header = TRUE,sep = ",", dec = ".", row.names = 1)
   }
-  
-  seuratObject =CreateSeuratObject(counts = Matrix, min.cells= 3, min.features = 200)
-  seuratObject<-RenameCells(object = seuratObject, add.cell.id = id)
+  seuratObject =CreateSeuratObject(counts = Matrix, project = id, min.cells = 5)
+  seuratObject$sample <- id
+  tmp<-unlist(strsplit(id,split = "-"))
+  seuratObject$condition <- paste0(tmp[1:length(tmp)-1],collapse = "-")
+  seuratObject <- subset(x = seuratObject, subset = nFeature_RNA > 500)
   if (performNormalisation==TRUE) {
-    seuratObject<-NormalizeData(object = seuratObject)
+    seuratObject<-NormalizeData(object = seuratObject,verbose = FALSE)
   }
   if(performVariableGeneDetection){
     seuratObject<-FindVariableFeatures(object = seuratObject, do.plot = FALSE, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
   }
-  #seuratObject<-ScaleData(object = seuratObject)
+  if (performScaling==TRUE) {
+    seuratObject<-ScaleData(object = seuratObject)
+  }
   cat("Imported ", length(seuratObject@meta.data$orig.ident), " cells from ", pathway, "with ID ", id, "\n")
   return(seuratObject)
 }
+
 
 #' Import and combine several Single cell sequencing experiments into Seurat
 #' @author David John

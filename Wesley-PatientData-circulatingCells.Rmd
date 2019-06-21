@@ -2,6 +2,8 @@
 title: "R Notebook"
 author: "David John"
 output: html_notebook
+editor_options: 
+  chunk_output_type: console
 ---
 
 #1.) Unimputed Data (Both Runs Combined)
@@ -264,11 +266,7 @@ save(CD31.circulatingCells.CD31pos,file =paste(outputFolder,"CD31.circulatingCel
 ```
 load
 ```{r}
-<<<<<<< HEAD
-load(file = paste(outputFolder,"CD31.circulatingCells.notImputed.rData",sep = ""))
-=======
 load(file = paste(outputFolder,"CD31.circulatingCells.notImputed.rData"))
->>>>>>> fd0db9047a7e7327a12ca64407617b405c357330
 ```
 
 
@@ -507,8 +505,6 @@ sink(file = logFile, append = TRUE, split = TRUE)
 <<<<<<< HEAD
 ## 3.1.2.) Define static parameters
 =======
-## 1.2.) Define static parameters
->>>>>>> fd0db9047a7e7327a12ca64407617b405c357330
 ```{r}
 #Static Parameters 
 #CD34 Cells excluded for now
@@ -535,7 +531,6 @@ Samplenames.PatientData <- c("Ctrl-Young-2","Ctrl-Young-3","Ctrl-Young-4",
                              "HF-10","HF-11")
 ```
 
-<<<<<<< HEAD
 ## 3.1.3.) import and combine the raw cellranger counts with CCA
 ```{r}
 CD31.circulatingCells <- combineSeuratObjectsCCA(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData)
@@ -758,6 +753,64 @@ CircRes_Cohort1_CD31Pos <- FindClusters(object = CircRes_Cohort1_CD31Pos, reduct
 PrintFindClustersParams(object = CircRes_Cohort1_CD31Pos)
 CircRes_Cohort1_CD31Pos <- RunTSNE(object = CircRes_Cohort1_CD31Pos, dims.use = 1:4, do.label=TRUE)
 ```
+
+```{r}
+
+newSamplename<-c()
+for (sampleName in CircRes_Cohort1_CD31Pos@meta.data$orig.ident) {
+  if (sampleName=="HF-1") {newSamplename<-c(newSamplename,"HF2.1")}
+  if (sampleName=="HF-2") {newSamplename<-c(newSamplename,"HF2.2")}
+  if (sampleName=="HF-3") {newSamplename<-c(newSamplename,"HF2.3")}
+  if (sampleName=="HF-4") {newSamplename<-c(newSamplename,"HF2.4")}
+  if (sampleName=="HF-5") {newSamplename<-c(newSamplename,"HF2.5")}
+  if (sampleName=="HF-6") {newSamplename<-c(newSamplename,"HF2.6")}
+  if (sampleName=="HF-7") {newSamplename<-c(newSamplename,"HF2.7")}
+  if (sampleName=="HF-8") {newSamplename<-c(newSamplename,"HF1.1")}
+  if (sampleName=="HF-9") {newSamplename<-c(newSamplename,"HF1.2")}
+  if (sampleName=="HF-10") {newSamplename<-c(newSamplename,"HF1.3")}
+  if (sampleName=="HF-11") {newSamplename<-c(newSamplename,"HF1.4")}
+  if (sampleName=="Ctrl-Aged-1") {newSamplename<-c(newSamplename,"HC2.1")}
+  if (sampleName=="Ctrl-Aged-2") {newSamplename<-c(newSamplename,"HC2.2")}
+  if (sampleName=="Ctrl-Aged-3") {newSamplename<-c(newSamplename,"HC2.3")}
+  if (sampleName=="Ctrl-Young-1") {newSamplename<-c(newSamplename,"HCY2.1")}
+  if (sampleName=="Ctrl-Young-2") {newSamplename<-c(newSamplename,"HCY1.1")}
+  if (sampleName=="Ctrl-Young-3") {newSamplename<-c(newSamplename,"HCY1.2")}
+  if (sampleName=="Ctrl-Young-4") {newSamplename<-c(newSamplename,"HCY1.3")}
+  if (sampleName=="Ctrl-Young-5") {newSamplename<-c(newSamplename,"HCY1.4")}
+  if (sampleName=="Ctrl-CD14-Young-1") {newSamplename<-c(newSamplename,"HCY2.1_CD14")}
+  else {cat("unknown Samplename: ", sampleName, "\n")}
+}
+table(newSamplename)
+names(newSamplename)<-CircRes_Cohort1_CD31Pos@cell.names
+CircRes_Cohort1_CD31Pos<-AddMetaData(object = CircRes_Cohort1_CD31Pos,metadata = data.frame(newSamplename),col.name = "newSamplenames")
+table(CircRes_Cohort1_CD31Pos@meta.data$newSamplename)
+
+rm(newSamplename)
+```
+
+##save
+```{r}
+outputFolder="/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/FirstRun/" 
+save(CircRes_Cohort1_CD31Pos,file = paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.FirstRun.CD31+.CircRes.RData"))
+```
+
+```{r}
+load(file=paste0(outputFolder,"Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.FirstRun.CD31+.CircRes.RData"))
+```
+
+plot Monocyte markers 
+```{r}
+#CircRes_Cohort2<-SetAllIdent(object = CircRes_Cohort2, id = "res.0.6")
+VlnPlot(CircRes_Cohort1_CD31Pos, features.plot = "PECAM1")
+FeaturePlot(object = CircRes_Cohort1_CD31Pos,features.plot = c("FUT4","ELANE","CEACAM1"))
+TSNEPlot(CircRes_Cohort1_CD31Pos, do.label = T)
+
+CircRes_Cohort1_CD31Pos <- SetAllIdent(object = CircRes_Cohort1_CD31Pos, id = "newSamplename")
+VlnPlot(CircRes_Cohort1_CD31Pos, features.plot = c("FUT4","ELANE"), x.lab.rot = 90)
+FeaturePlot(object = CircRes_Cohort1_CD31Pos,features.plot = c("TREM2"))
+```
+
+
 #####request from Stefanie from 05.06.19 19:08 Expression of TREM2 on Cohort1 
 ```{r}
 CircRes_Cohort1_CD31Pos <- SetAllIdent(CircRes_Cohort1_CD31Pos, id = "condition")
@@ -765,7 +818,7 @@ FeaturePlot(CircRes_Cohort1_CD31Pos,features=c("TREM2"))
 VlnPlot(CircRes_Cohort1_CD31Pos,features=c("TREM2"))
 
 
-Get percentage of Neutrophil Marker positive cells
+#Get percentage of Neutrophil Marker positive cells
 ```{r}
 df.NeutrophilPos.Cohort1 <- data.frame()
 CircRes_Cohort1_CD31Pos<-SetAllIdent(CircRes_Cohort1_CD31Pos,id = "orig.ident")
@@ -808,13 +861,6 @@ pfile <- Convert(from = CD31.circulatingCells, to = "loom", filename = "CD31.cir
 
 ```
 
-
-```{python}
-print("hello"2)
-
-```
-
-
 #TODO
 plot characktristic Monocyte markers (e.g. CD14, FCGRCA, CD64, CD68, CD163, CXC3R1, CCR5, CCR2, CD192,IL1, IL10, TLR2, TLR3,)
 Barplot with error marks + Raw Data in Table
@@ -829,7 +875,7 @@ Neutrophil.Markers <- c("FUT4", "ELANE", "CEACAM1")
 sem <- function(x) sd(x)/sqrt(length(x)) #define function to calc SEM
 
 
-"Classical.Monocyte"     "Intermediate.Monocyte"  "Non.Classical.Monocyte"
+#"Classical.Monocyte"     "Intermediate.Monocyte"  "Non.Classical.Monocyte"
 
 BothCohortsMonocytes<-SetAllIdent(BothCohortsMonocytes,id = "Monocyte.Annotations")
 Classical.Monocyte<-SubsetData(BothCohortsMonocytes, ident.use = "Classical.Monocyte")
@@ -919,10 +965,6 @@ p + geom_bar(stat = "identity", color="black", position = position_dodge(), ) +
 
 
 # _
-=======
-
-
-
 ## 3.2.) Second Run
 ###3.2.1.) Import packages
 ```{r message=FALSE}
@@ -1487,13 +1529,10 @@ Plots
 VlnPlot(CircRes_Cohort2, features.plot = "PECAM1")
 FeaturePlot(object = CircRes_Cohort2,features.plot = c("FUT4","ELANE","CEACAM1"))
 TSNEPlot(CircRes_Cohort2, do.label = T)
-<<<<<<< HEAD
 
 CircRes_Cohort2 <- SetAllIdent(object = CircRes_Cohort2, id = "condition")
 VlnPlot(CircRes_Cohort2, features.plot = "TREM2")
 FeaturePlot(object = CircRes_Cohort2,features.plot = c("TREM2"))
-=======
->>>>>>> fd0db9047a7e7327a12ca64407617b405c357330
 ```
 
 select CD31+ cells
@@ -1508,11 +1547,77 @@ PrintFindClustersParams(object = CircRes_Cohort2_CD31Pos)
 CircRes_Cohort2_CD31Pos <- RunTSNE(object = CircRes_Cohort2_CD31Pos, dims.use = 1:4, do.label=TRUE)
 ```
 
+Rename Samplenames
+```{r}
+
+newSamplename<-c()
+for (sampleName in CircRes_Cohort2_CD31Pos@meta.data$orig.ident) {
+  if (sampleName=="HF-1") {newSamplename<-c(newSamplename,"HF2.1")}
+  if (sampleName=="HF-2") {newSamplename<-c(newSamplename,"HF2.2")}
+  if (sampleName=="HF-3") {newSamplename<-c(newSamplename,"HF2.3")}
+  if (sampleName=="HF-4") {newSamplename<-c(newSamplename,"HF2.4")}
+  if (sampleName=="HF-5") {newSamplename<-c(newSamplename,"HF2.5")}
+  if (sampleName=="HF-6") {newSamplename<-c(newSamplename,"HF2.6")}
+  if (sampleName=="HF-7") {newSamplename<-c(newSamplename,"HF2.7")}
+  if (sampleName=="HF-8") {newSamplename<-c(newSamplename,"HF1.1")}
+  if (sampleName=="HF-9") {newSamplename<-c(newSamplename,"HF1.2")}
+  if (sampleName=="HF-10") {newSamplename<-c(newSamplename,"HF1.3")}
+  if (sampleName=="HF-11") {newSamplename<-c(newSamplename,"HF1.4")}
+  if (sampleName=="Ctrl-Aged-1") {newSamplename<-c(newSamplename,"HC2.1")}
+  if (sampleName=="Ctrl-Aged-2") {newSamplename<-c(newSamplename,"HC2.2")}
+  if (sampleName=="Ctrl-Aged-3") {newSamplename<-c(newSamplename,"HC2.3")}
+  if (sampleName=="Ctrl-Young-1") {newSamplename<-c(newSamplename,"HCY2.1")}
+  if (sampleName=="Ctrl-Young-2") {newSamplename<-c(newSamplename,"HCY1.1")}
+  if (sampleName=="Ctrl-Young-3") {newSamplename<-c(newSamplename,"HCY1.2")}
+  if (sampleName=="Ctrl-Young-4") {newSamplename<-c(newSamplename,"HCY1.3")}
+  if (sampleName=="Ctrl-Young-5") {newSamplename<-c(newSamplename,"HCY1.4")}
+  if (sampleName=="Ctrl-CD14-Young-1") {newSamplename<-c(newSamplename,"HCY2.1_CD14")}
+  else {cat("unknown Samplename: ", sampleName, "\n")}
+}
+table(newSamplename)
+names(newSamplename)<-CircRes_Cohort2_CD31Pos@cell.names
+CircRes_Cohort2_CD31Pos<-AddMetaData(object = CircRes_Cohort2_CD31Pos,metadata = data.frame(newSamplename),col.name = "newSamplenames")
+table(CircRes_Cohort2_CD31Pos@meta.data$newSamplename)
+
+rm(newSamplename)
+```
+
+
+
+Rename Samplenames for Circres Figures
+```{r}
+
+newSamplename.CircRes<-c()
+for (sampleName in CircRes_Cohort2_CD31Pos@meta.data$orig.ident) {
+  if (sampleName=="HF-3") {newSamplename.CircRes<-c(newSamplename.CircRes,"HF2.1")}
+  if (sampleName=="HF-4") {newSamplename.CircRes<-c(newSamplename.CircRes,"HF2.2")}
+  if (sampleName=="HF-5") {newSamplename.CircRes<-c(newSamplename.CircRes,"HF2.3")}
+  if (sampleName=="HF-6") {newSamplename.CircRes<-c(newSamplename.CircRes,"HF2.4")}
+  if (sampleName=="Ctrl-Aged-1") {newSamplename.CircRes<-c(newSamplename.CircRes,"HC2.1")}
+  if (sampleName=="Ctrl-Aged-2") {newSamplename.CircRes<-c(newSamplename.CircRes,"HC2.2")}
+  if (sampleName=="Ctrl-Aged-3") {newSamplename.CircRes<-c(newSamplename.CircRes,"HC2.3")}
+  else {cat("unknown Samplename: ", sampleName, "\n")}
+}
+table(newSamplename.CircRes)
+names(newSamplename.CircRes)<-CircRes_Cohort2_CD31Pos@cell.names
+CircRes_Cohort2_CD31Pos<-AddMetaData(object = CircRes_Cohort2_CD31Pos,metadata = data.frame(newSamplename.CircRes),col.name = "newSamplenames.CircRes")
+table(CircRes_Cohort2_CD31Pos@meta.data$newSamplename.CircRes)
+
+rm(newSamplename.CircRes)
+```
+
+
+
 Plots
 ```{r}
 #Neutrophil Markers
-VlnPlot(CircRes_Cohort2_CD31Pos, features.plot = c("FUT4","ELANE","CEACAM1"))
-FeaturePlot(object = CircRes_Cohort2_CD31Pos,features.plot = c("FUT4","ELANE","CEACAM1"))
+CircRes_Cohort2_CD31Pos <- SetAllIdent(object = CircRes_Cohort2_CD31Pos, id = "newSamplename.CircRes")
+
+VlnPlot(CircRes_Cohort2_CD31Pos, features.plot = c("FUT4","ELANE"),x.lab.rot = 90)
+FeaturePlot(object = CircRes_Cohort2_CD31Pos,features.plot = c("FUT4","ELANE"),cols.use = c("grey","red"))
+
+VlnPlot(CircRes_Cohort2_CD31Pos, features.plot = c("PECAM1"),x.lab.rot = 90)
+
 
 #Monocyte Markers
 VlnPlot(CircRes_Cohort2_CD31Pos, features.plot = c("CD14","CD68","CD163"))
@@ -1522,7 +1627,6 @@ TSNEPlot(CircRes_Cohort2_CD31Pos, do.label = T)
 
 Get percentage of Neutrophil Marker positive cells
 ```{r}
-<<<<<<< HEAD
 df.NeutrophilPos <- data.frame()
 CircRes_Cohort2_CD31Pos<-SetAllIdent(CircRes_Cohort2_CD31Pos,id = "orig.ident")
 for (x in unique(CircRes_Cohort2_CD31Pos@meta.data$orig.ident)) {
@@ -1552,11 +1656,10 @@ median(CircRes_Cohort2_CD31Pos@data["FUT4",])
 
 
 V<- CircRes_Cohort2_CD31Pos@meta.data
-=======
+
 CircRes_Cohort2_CD31Pos.Fut4Pos <-SubsetData(CircRes_Cohort2_CD31Pos, subset.name = "FUT4", accept.low = 0.01)
 
 V<- CircRes_Cohort2_CD31Pos.Fut4Pos@meta.data
->>>>>>> fd0db9047a7e7327a12ca64407617b405c357330
 orig.ident.ordered<-str_sort(unique(CircRes_Cohort2_CD31Pos.Fut4Pos@meta.data$orig.ident),numeric = TRUE)
 V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
 V$res.0.6<-factor(V$res.0.6,levels = c(0:length(unique(CircRes_Cohort2_CD31Pos.Fut4Pos@meta.data$res.0.6))))
@@ -1595,11 +1698,9 @@ CircRes_Cohort2_CD31Pos.Markers.OldYoung <- FindAllMarkers(CircRes_Cohort2_CD31P
 ```
 
 ```{r}
+
 save(CircRes_Cohort2_CD31Pos,file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.circRes.CD31+.RData")
-<<<<<<< HEAD
 load("/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.circRes.CD31+.RData")
-=======
->>>>>>> fd0db9047a7e7327a12ca64407617b405c357330
 ```
 
 
@@ -1656,8 +1757,6 @@ Samplenames.PatientData <- c("Ctrl-Young-2","Ctrl-Young-3","Ctrl-Young-4",
 ```{r}
 CD31.circulatingCells.Cohort1.Imputed <- combineScImputedSeuratObjectsCCA(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData)
 
-#save
-save(CD31.circulatingCells.Cohort1.Imputed, file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Imputed/SeparatedByRun/FirstRun/Wesley-PatientData-circulatingCells.Imputed.SeparatedByRun.FirstRun.RData")
 
 
 CD31.circulatingCells.Cohort1.Imputed <- FindVariableGenes(object = CD31.circulatingCells.Cohort1.Imputed)
@@ -1715,9 +1814,14 @@ TSNEPlot(object = CD31.circulatingCells.Cohort1.Imputed, label=T, pt.size = 0.1,
 TSNEPlot(object = CD31.circulatingCells.Cohort1.Imputed, label=T, pt.size = 0.1, do.return=TRUE, cells.use = WhichCells(CD31.circulatingCells.Cohort1.Imputed,ident = "HF"))+ scale_color_manual(values = my_color_palette[2])
 ```
 
+#### Suppl. Figure4 Cohort 1
+All Cells
 ```{r}
 #generate VLNPlot by hand for Stefanie 06.09.19
 genes<-c("S100A8","S100A9","CXCL8","S100A12","VCAN","THBS1","CLEC7A","IL1B","CXCL2","EREG","CYP1B1","AC245014.3","PECAM1","CD14")
+
+genes<-c("S100A8","S100A9","CXCL8","S100A12","VCAN","THBS1","CLEC7A","IL1B","CXCL2","EREG")
+
 
 df.tmp<-data.frame(conditions=CD31.circulatingCells.Cohort1.Imputed@meta.data$condition)
 for (i in genes) {
@@ -1728,16 +1832,65 @@ colnames(df.tmp)<-c("conditions",genes)
 library(reshape2)
 df.melt<-melt(df.tmp,id.vars = "conditions")
 
-ggplot(df.melt,aes(x=conditions,y=value,fill=conditions)) + 
-  geom_violin(scale = "width",) + facet_wrap(~variable, scales = "free") + theme(strip.background = element_blank()) + scale_fill_manual(values = my_color_palette)
+ggplot(subset(df.melt, ),aes(x=conditions,y=value,fill=conditions)) + 
+  geom_violin(scale = "width",) + facet_wrap(~variable, scales = "free", nrow = 2) + theme(strip.background = element_blank(), legend.position="none") + scale_fill_manual(values = c("red","blue")) + labs(title = "Cohort 1 Imputed All Cells")
 
 ```
 
+```{r}
+CD31.circulatingCells.Cohort1.Imputed.CD31Pos <- SubsetData(CD31.circulatingCells.Cohort1.Imputed, subset.name = "PECAM1", accept.low = 0.001)
+CD31.circulatingCells.Cohort1.Imputed.CD31Pos <- FindVariableGenes(object = CD31.circulatingCells.Cohort1.Imputed.CD31Pos)
+CD31.circulatingCells.Cohort1.Imputed.CD31Pos <- RunPCA(object = CD31.circulatingCells.Cohort1.Imputed.CD31Pos, features = VariableFeatures(object = CD31.circulatingCells.Cohort1.Imputed.CD31Pos), verbose = TRUE)
+CD31.circulatingCells.Cohort1.Imputed.CD31Pos<-ProjectPCA(object = CD31.circulatingCells.Cohort1.Imputed.CD31Pos, do.print = FALSE)
+PCHeatmap(object = CD31.circulatingCells.Cohort1.Imputed.CD31Pos, pc.use = 1:14, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+CD31.circulatingCells.Cohort1.Imputed.CD31Pos <- FindClusters(object = CD31.circulatingCells.Cohort1.Imputed.CD31Pos, reduction.type = "pca", dims.use = 1:7, resolution = 0.6, save.SNN = TRUE, force.recalc = T)
+PrintFindClustersParams(object = CD31.circulatingCells.Cohort1.Imputed.CD31Pos)
+CD31.circulatingCells.Cohort1.Imputed.CD31Pos <- RunTSNE(object = CD31.circulatingCells.Cohort1.Imputed.CD31Pos, dims.use = 1:10, do.label=TRUE)
+TSNEPlot(CD31.circulatingCells.Cohort1.Imputed.CD31Pos)
+```
+
+
+
+CD31 positives
+```{r}
+
+#generate VLNPlot by hand for Stefanie 06.09.19
+genes<-c("S100A8","S100A9","CXCL8","S100A12","VCAN","THBS1","CLEC7A","IL1B","CXCL2","EREG")
+
+genes<-c("S100A8","S100A9","CXCL8","S100A12","THBS1","CLEC7A","VCAN","EREG")
+
+
+df.tmp<-data.frame(conditions=CD31.circulatingCells.Cohort1.Imputed.CD31Pos@meta.data$condition)
+for (i in genes) {
+  df.tmp<-data.frame(df.tmp,CD31.circulatingCells.Cohort1.Imputed.CD31Pos@data[i,])
+}
+colnames(df.tmp)<-c("conditions",genes)
+
+library(reshape2)
+df.melt<-melt(df.tmp,id.vars = "conditions")
+
+ggplot(subset(df.melt, ),aes(x=conditions,y=value,fill=conditions)) + 
+  geom_violin(scale = "width",) + facet_wrap(~variable, scales = "free", nrow = 2) + theme(strip.background = element_blank(), legend.position="none") + scale_fill_manual(values = c("red","blue")) + labs(title = "Cohort 1 Imputed Monocytes")
+
+```
+
+All Cells
+```{r}
+#save
+save(CD31.circulatingCells.Cohort1.Imputed, file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Imputed/SeparatedByRun/FirstRun/Wesley-PatientData-circulatingCells.Imputed.SeparatedByRun.FirstRun.RData")
+
+load("/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Imputed/SeparatedByRun/FirstRun/Wesley-PatientData-circulatingCells.Imputed.SeparatedByRun.FirstRun.RData")
+```
+
+CD31 positive Cells
+```{r}
+#save
+save(CD31.circulatingCells.Cohort1.Imputed.CD31Pos, file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Imputed/SeparatedByRun/FirstRun/Wesley-PatientData-circulatingCells.Imputed.SeparatedByRun.FirstRun.CD31Pos.RData")
+
+load("/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Imputed/SeparatedByRun/FirstRun/Wesley-PatientData-circulatingCells.Imputed.SeparatedByRun.FirstRun.RData")
+```
+
 =======
->>>>>>> fd0db9047a7e7327a12ca64407617b405c357330
-
-
-
 ##4.2.) Second run
 
 ###4.2.1.) Import packages
@@ -1789,40 +1942,37 @@ Samplenames.PatientData <- c("HF-1","HF-2","HF-3",
 ```
 
 
-<<<<<<< HEAD
 ## 4.2.3.) Import an normalise Data
 =======
 
->>>>>>> fd0db9047a7e7327a12ca64407617b405c357330
 ```{r}
-CD31.circulatingCells <- combineScImputedSeuratObjectsCCA(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData)
+CD31.circulatingCells.Cohort2.Imputed <- combineScImputedSeuratObjectsCCA(pathways = Path.PatientData.CD31.circulatingCells, ids = Samplenames.PatientData)
 
 
 
 #regress out batch effects 
-mito.genes <- grep(pattern = "^MT-", x = rownames(x = CD31.circulatingCells@data), value = TRUE)
-percent.mito <- Matrix::colSums(CD31.circulatingCells@raw.data[mito.genes, ])/Matrix::colSums(CD31.circulatingCells@raw.data)
-CD31.circulatingCells <- AddMetaData(object = CD31.circulatingCells, metadata = percent.mito, col.name = "percent.mito");rm(mito.genes, percent.mito)
-CD31.circulatingCells.filtered <- FilterCells(object = CD31.circulatingCells, subset.names = c("nGene", "percent.mito"), low.thresholds = c(1000, -Inf), high.thresholds = c(Inf, 0.1))
+mito.genes <- grep(pattern = "^MT-", x = rownames(x = CD31.circulatingCells.Cohort2.Imputed@data), value = TRUE)
+percent.mito <- Matrix::colSums(CD31.circulatingCells.Cohort2.Imputed@raw.data[mito.genes, ])/Matrix::colSums(CD31.circulatingCells.Cohort2.Imputed@raw.data)
+CD31.circulatingCells.Cohort2.Imputed <- AddMetaData(object = CD31.circulatingCells.Cohort2.Imputed, metadata = percent.mito, col.name = "percent.mito");rm(mito.genes, percent.mito)
+CD31.circulatingCells.Cohort2.Imputed.filtered <- FilterCells(object = CD31.circulatingCells.Cohort2.Imputed, subset.names = c("nGene", "percent.mito"), low.thresholds = c(1000, -Inf), high.thresholds = c(Inf, 0.1))
 
 
-GenePlot(object = CD31.circulatingCells, gene1 = "nUMI", gene2 = "percent.mito")
-GenePlot(object = CD31.circulatingCells.filtered, gene1 = "nUMI", gene2 = "percent.mito")
+GenePlot(object = CD31.circulatingCells.Cohort2.Imputed, gene1 = "nUMI", gene2 = "percent.mito")
+GenePlot(object = CD31.circulatingCells.Cohort2.Imputed.filtered, gene1 = "nUMI", gene2 = "percent.mito")
 
 
-CD31.circulatingCells <- FindVariableGenes(object = CD31.circulatingCells)
-CD31.circulatingCells <- RunPCA(object = CD31.circulatingCells, features = VariableFeatures(object = CD31.circulatingCells), verbose = TRUE)
-CD31.circulatingCells<-ProjectPCA(object = CD31.circulatingCells, do.print = FALSE)
-PCHeatmap(object = CD31.circulatingCells, pc.use = 1:12, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
-CD31.circulatingCells <- FindClusters(object = CD31.circulatingCells, reduction.type = "pca", dims.use = 1:11, resolution = 0.6, print.output = 0, save.SNN = TRUE)
-PrintFindClustersParams(object = CD31.circulatingCells)
-CD31.circulatingCells <- RunTSNE(object = CD31.circulatingCells, dims.use = 1:11, do.fast = TRUE)
+CD31.circulatingCells.Cohort2.Imputed <- FindVariableGenes(object = CD31.circulatingCells.Cohort2.Imputed)
+CD31.circulatingCells.Cohort2.Imputed <- RunPCA(object = CD31.circulatingCells.Cohort2.Imputed, features = VariableFeatures(object = CD31.circulatingCells.Cohort2.Imputed), verbose = TRUE)
+CD31.circulatingCells.Cohort2.Imputed<-ProjectPCA(object = CD31.circulatingCells.Cohort2.Imputed, do.print = FALSE)
+PCHeatmap(object = CD31.circulatingCells.Cohort2.Imputed, pc.use = 1:12, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+CD31.circulatingCells.Cohort2.Imputed <- FindClusters(object = CD31.circulatingCells.Cohort2.Imputed, reduction.type = "pca", dims.use = 1:11, resolution = 0.6, print.output = 0, save.SNN = TRUE)
+PrintFindClustersParams(object = CD31.circulatingCells.Cohort2.Imputed)
+CD31.circulatingCells.Cohort2.Imputed <- RunTSNE(object = CD31.circulatingCells.Cohort2.Imputed, dims.use = 1:11, do.fast = TRUE)
 
 
-TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE)
-CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells, id = "orig.ident")
-TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.label = T)
-<<<<<<< HEAD
+TSNEPlot(object = CD31.circulatingCells.Cohort2.Imputed, label=T, pt.size = 0.1, do.return=TRUE)
+CD31.circulatingCells.Cohort2.Imputed<-SetAllIdent(CD31.circulatingCells.Cohort2.Imputed, id = "orig.ident")
+TSNEPlot(object = CD31.circulatingCells.Cohort2.Imputed, label=T, pt.size = 0.1, do.label = T)
 ```
 
 ## 4.2.4.)generate TSNE Plots
@@ -1831,26 +1981,24 @@ TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.label = T)
 
 
 
-```
 
 ## 3.1.5.)generate TSNE Plots
->>>>>>> fd0db9047a7e7327a12ca64407617b405c357330
 ```{r}
-CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
-TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE, do.label = TRUE, label.size = 9)
+CD31.circulatingCells.Cohort2.Imputed<- SetAllIdent(object = CD31.circulatingCells.Cohort2.Imputed, id = "res.0.6")
+TSNEPlot(object = CD31.circulatingCells.Cohort2.Imputed, label=T, pt.size = 0.1, do.return=TRUE, do.label = TRUE, label.size = 9)
 
 
-CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "orig.ident")
-TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE)
+CD31.circulatingCells.Cohort2.Imputed<- SetAllIdent(object = CD31.circulatingCells.Cohort2.Imputed, id = "orig.ident")
+TSNEPlot(object = CD31.circulatingCells.Cohort2.Imputed, label=T, pt.size = 0.1, do.return=TRUE)
 
-CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "condition")
-TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE)
+CD31.circulatingCells.Cohort2.Imputed<- SetAllIdent(object = CD31.circulatingCells.Cohort2.Imputed, id = "condition")
+TSNEPlot(object = CD31.circulatingCells.Cohort2.Imputed, label=T, pt.size = 0.1, do.return=TRUE)
 ```
 
 Separated by condition
 ```{r}
 condition<-c()
-for (barcode in colnames(CD31.circulatingCells@data)) {
+for (barcode in colnames(CD31.circulatingCells.Cohort2.Imputed@data)) {
   tmp<-unlist(strsplit(barcode,split = "-"))
   currentBarcode<-paste0(tmp[1:length(tmp)-1],collapse = "-")
   
@@ -1858,28 +2006,29 @@ for (barcode in colnames(CD31.circulatingCells@data)) {
   
 }
 table(condition)
-names(condition)<-CD31.circulatingCells@cell.names
-CD31.circulatingCells<-AddMetaData(object = CD31.circulatingCells,metadata = condition,col.name = "condition");rm(condition)
+names(condition)<-CD31.circulatingCells.Cohort2.Imputed@cell.names
+CD31.circulatingCells.Cohort2.Imputed<-AddMetaData(object = CD31.circulatingCells.Cohort2.Imputed,metadata = condition,col.name = "condition");rm(condition)
 
-CD31.circulatingCells<- SetAllIdent(object = CD31.circulatingCells, id = "condition")
-TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.01, do.return=TRUE)
-<<<<<<< HEAD
+CD31.circulatingCells.Cohort2.Imputed<- SetAllIdent(object = CD31.circulatingCells.Cohort2.Imputed, id = "condition")
+TSNEPlot(object = CD31.circulatingCells.Cohort2.Imputed, label=T, pt.size = 0.01, do.return=TRUE)
 
 
 
 #generate TSNEPlots for the reviewer
-TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE, cells.use = WhichCells(CD31.circulatingCells,ident = "Ctrl-Aged")) + scale_color_manual(values = my_color_palette[1])
-TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE, cells.use = WhichCells(CD31.circulatingCells,ident = "Ctrl-Young"))+ scale_color_manual(values = my_color_palette[2])
-TSNEPlot(object = CD31.circulatingCells, label=T, pt.size = 0.1, do.return=TRUE, cells.use = WhichCells(CD31.circulatingCells,ident = "HF"))+ scale_color_manual(values = my_color_palette[3])
+TSNEPlot(object = CD31.circulatingCells.Cohort2.Imputed, label=T, pt.size = 0.1, do.return=TRUE, cells.use = WhichCells(CD31.circulatingCells.Cohort2.Imputed,ident = "Ctrl-Aged")) + scale_color_manual(values = my_color_palette[1])
+TSNEPlot(object = CD31.circulatingCells.Cohort2.Imputed, label=T, pt.size = 0.1, do.return=TRUE, cells.use = WhichCells(CD31.circulatingCells.Cohort2.Imputed,ident = "Ctrl-Young"))+ scale_color_manual(values = my_color_palette[2])
+TSNEPlot(object = CD31.circulatingCells.Cohort2.Imputed, label=T, pt.size = 0.1, do.return=TRUE, cells.use = WhichCells(CD31.circulatingCells.Cohort2.Imputed,ident = "HF"))+ scale_color_manual(values = my_color_palette[3])
 ```
 
+#### Suppl. Figure4 Cohort 2
+All Cells
 ```{r}
 #generate VLNPlot by hand for Stefanie 06.09.19
-genes<-c("S100A8","S100A9","CXCL8","S100A12","VCAN","THBS1","CLEC7A","IL1B","CXCL2","EREG","CYP1B1","AC245014.3","PECAM1","CD14")
+genes<-c("S100A8","S100A9","CXCL8","S100A12","VCAN","THBS1","CLEC7A","IL1B","CXCL2","EREG")
 
-df.tmp<-data.frame(conditions=CD31.circulatingCells@meta.data$condition)
+df.tmp<-data.frame(conditions=CD31.circulatingCells.Cohort2.Imputed@meta.data$condition)
 for (i in genes) {
-  df.tmp<-data.frame(df.tmp,CD31.circulatingCells@data[i,])
+  df.tmp<-data.frame(df.tmp,CD31.circulatingCells.Cohort2.Imputed@data[i,])
 }
 colnames(df.tmp)<-c("conditions",genes)
 
@@ -1887,15 +2036,47 @@ library(reshape2)
 df.melt<-melt(df.tmp,id.vars = "conditions")
 
 ggplot(subset(df.melt, subset = conditions!="Ctrl-Young"),aes(x=conditions,y=value,fill=conditions)) + 
-  geom_violin(scale = "width",) + facet_wrap(~variable, scales = "free") + theme(strip.background = element_blank()) + scale_color_manual(values = my_color_palette[1])
+  geom_violin(scale = "width",) + facet_wrap(~variable, scales = "free", nrow = 2) + theme(strip.background = element_blank(), legend.position="none") + scale_fill_manual(values = c("red","blue")) + labs(title = "Cohort 2 Imputed All Cells")
+
+```
+
+```{r}
+CD31.circulatingCells.Cohort2.Imputed.CD31Pos <- SubsetData(CD31.circulatingCells.Cohort2.Imputed, subset.name = "PECAM1", accept.low = 0.001)
+CD31.circulatingCells.Cohort2.Imputed.CD31Pos <- FindVariableGenes(object = CD31.circulatingCells.Cohort2.Imputed.CD31Pos)
+CD31.circulatingCells.Cohort2.Imputed.CD31Pos <- RunPCA(object = CD31.circulatingCells.Cohort2.Imputed.CD31Pos, features = VariableFeatures(object = CD31.circulatingCells.Cohort2.Imputed.CD31Pos), verbose = TRUE)
+CD31.circulatingCells.Cohort2.Imputed.CD31Pos<-ProjectPCA(object = CD31.circulatingCells.Cohort2.Imputed.CD31Pos, do.print = FALSE)
+PCHeatmap(object = CD31.circulatingCells.Cohort2.Imputed.CD31Pos, pc.use = 1:14, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+CD31.circulatingCells.Cohort2.Imputed.CD31Pos <- FindClusters(object = CD31.circulatingCells.Cohort2.Imputed.CD31Pos, reduction.type = "pca", dims.use = 1:7, resolution = 0.6, save.SNN = TRUE, force.recalc = T)
+PrintFindClustersParams(object = CD31.circulatingCells.Cohort2.Imputed.CD31Pos)
+CD31.circulatingCells.Cohort2.Imputed.CD31Pos <- RunTSNE(object = CD31.circulatingCells.Cohort2.Imputed.CD31Pos, dims.use = 1:10, do.label=TRUE)
+```
+
+
+
+CD31 positives
+```{r}
+
+#generate VLNPlot by hand for Stefanie 06.09.19
+genes<-c("S100A8","S100A9","CXCL8","S100A12","VCAN","THBS1","CLEC7A","IL1B","CXCL2","EREG")
+
+genes<-c("S100A8","S100A9","CXCL8","S100A12","THBS1","CLEC7A","VCAN","EREG")
+
+
+df.tmp<-data.frame(conditions=CD31.circulatingCells.Cohort2.Imputed.CD31Pos@meta.data$condition)
+for (i in genes) {
+  df.tmp<-data.frame(df.tmp,CD31.circulatingCells.Cohort2.Imputed.CD31Pos@data[i,])
+}
+colnames(df.tmp)<-c("conditions",genes)
+
+library(reshape2)
+df.melt<-melt(df.tmp,id.vars = "conditions")
+
+ggplot(subset(df.melt, subset = conditions!="Ctrl-Young"),aes(x=conditions,y=value,fill=conditions)) + 
+  geom_violin(scale = "width",) + facet_wrap(~variable, scales = "free", nrow = 2) + theme(strip.background = element_blank(), legend.position="none") + scale_fill_manual(values = c("red","blue")) + labs(title = "Cohort 2 Imputed Monocytes")
 
 ```
 
 
-=======
-```
-
->>>>>>> fd0db9047a7e7327a12ca64407617b405c357330
 Separated by condition colored by cluster
 ```{r}
 CD31.circulatingCells<-SetAllIdent(CD31.circulatingCells,id = "res.0.6")
@@ -1926,11 +2107,8 @@ for (ident in idents){
   }
 ```
 
-<<<<<<< HEAD
 ## 4.2.5.) Barplot of cell per cluster
 =======
-## 3.1.6.) Barplot of cell per cluster
->>>>>>> fd0db9047a7e7327a12ca64407617b405c357330
 ```{r fig.height=10, fig.width=15}
 # Counting celltypes in timepoints
 library(tidyr)
@@ -2070,5 +2248,17 @@ write.csv(CD31.circulatingCells.markers,file = paste0(outputFolder,"ClusterSpeci
 
 #Save
 ```{r}
-save(CD31.circulatingCells,file = paste0(outputFolder,"Wesley-PatientData-circulatingCells.imputed.SeparatedByRun.SecondRun.RData"))
+save(CD31.circulatingCells.Cohort2.Imputed,file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Imputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.imputed.SeparatedByRun.SecondRun.RData")
+
+load("/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Imputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.imputed.SeparatedByRun.SecondRun.RData")
+CD31.circulatingCells
+CD31.circulatingCells.Cohort2.Imputed <- CD31.circulatingCells
+
 ```
+
+```{r}
+save(CD31.circulatingCells.Cohort2.Imputed.CD31Pos,file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Imputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.imputed.SeparatedByRun.SecondRun.CDE31Pos.RData")
+
+load("/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Imputed/SeparatedByRun/SecondRun/Wesley-PatientData-circulatingCells.imputed.SeparatedByRun.SecondRun.CDE31Pos.RData")
+```
+
