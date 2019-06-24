@@ -95,7 +95,7 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 - [ ] Perform a Gene Ontology (GO) Analysis by Metascape with all significant upregulated marker genes for each Cell type (2 GO Analysis)
   
 ##### Task 2
--[ ] Subset these cell types and recluster this subset
+- [ ] Subset these cell types and recluster this subset
 
 
 ### 4.1.2. Option B:
