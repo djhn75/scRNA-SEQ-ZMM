@@ -88,7 +88,8 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 
 
 # 4.) Student Tasks
-## 4.1.) Generate Gene Ontology Graphs with Metascape (http://metascape.org/gp/index.html#/main/step1)
+## 4.1.) Generate Gene Ontology Graphs with Metascape 
+(<http://metascape.org/gp/index.html#/main/step1>)
 ### 4.1.1. Option A: 
 ##### Task 1
 - [ ] Select Differentially expressed genes between NK and CD8 T
