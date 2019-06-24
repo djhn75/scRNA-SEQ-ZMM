@@ -83,12 +83,12 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 
 
 
-#3.) Run the R-script: https://github.com/djhn75/scRNA-SEQ-ZMM/blob/master/scRNA-seq-course-2019.Rmd
+# 3.) Run the R-script: https://github.com/djhn75/scRNA-SEQ-ZMM/blob/master/scRNA-seq-course-2019.Rmd
 
 
-#4.)Student Tasks
-##4.1.) Generate Gene Ontology Graphs with Metascape (http://metascape.org/gp/index.html#/main/step1)
-###4.1.1. Option A: 
+# 4.)Student Tasks
+## 4.1.) Generate Gene Ontology Graphs with Metascape (http://metascape.org/gp/index.html#/main/step1)
+### 4.1.1. Option A: 
 ##### Task 1
 -[ ] Select Differentially expressed genes between NK and CD8 T
 -[ ] Perform a Gene Ontology (GO) Analysis by Metascape with all significant upregulated marker genes for each Cell type (2 GO Analysis)
@@ -97,7 +97,7 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 -[ ] Subset these cell types and recluster this subset
 
 
-###4.1.2. Option B:
+### 4.1.2. Option B:
 ##### Task 1
 
 -[ ] Select Differentially expressed genes between CD14+ Mono and FCGR3A+ Mono
@@ -107,7 +107,7 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 -[ ] Subset these cell types and recluster this subset
   
   
-###4.1.3. Option C:
+### 4.1.3. Option C:
 ##### Task 1
 
 -[ ] Select Differentially expressed genes between Naive CD4 T and Memory CD4 T
@@ -117,7 +117,7 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 -[ ] Subset these cell types and recluster this subset
   
   
-##4.2.) Questions: Please discuss the following questions:
+## 4.2.) Questions: Please discuss the following questions:
 
 -[ ] How would you define the difference between the two celltypes?
 -[ ] Could you find more than the initial 2 Cluster after reclustering? What is the implication of this? 
