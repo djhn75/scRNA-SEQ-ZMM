@@ -75,7 +75,7 @@ CD34.combined <- IntegrateData(anchorset = CD34.anchors, dims = 1:20)
 DefaultAssay(object = CD34.combined) <- "integrated"
 
 # Run the standard workflow for visualization and clustering
-CD34.combined <- ScaleData(object = CD34.combined, verbose = FALSE)
+CD34.combined <- ScaleData(object = CD34.combined, verbose = FALSE, )
 CD34.combined <- RunPCA(object = CD34.combined, npcs = 30, verbose = FALSE)
 # t-SNE and Clustering
 CD34.combined <- RunTSNE(object = CD34.combined)
@@ -158,14 +158,24 @@ save(CD34.combined,file = "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating
 ```
 
 
+```{r}
+VlnPlot(object = CD34.combined, features = c("CDKN2A", "CDKN1A"), group.by = "condition")
+FeaturePlot(object = CD34.combined, features = c("IFNG-AS1"), split.by = "orig.ident", )
+
+
+
+FeatureHeatmap(CD31.circulatingCells, features.plot = c("IFNG-AS1"), group.by = "condition")
+FeatureHeatmap(CD31.circulatingCells, features.plot = c("MAN2A1"), group.by = "orig.ident")
+```
+
+
 
 ## 3.1.7) Cluster specific markers
 ```{r}
 CD34.combined <- SetAllIdent(object = CD31.circulatingCells, id = "res.0.6")
-CD34.combined.markers <- FindAllMarkers(object = CD34.combined, only.pos = TRUE)
-# --> No DEGs found
+CD34.combined.markers <- FindAllMarkers(object = CD34.combined, only.pos = TRUE, )
 
-dink<-CD34.combined.markers %>% group_by(cluster) %>% top_n(20, avg_logFC)
+top20<-CD34.combined.markers %>% group_by(cluster) %>% top_n(20, avg_logFC)
 write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
 ```
 
