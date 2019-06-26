@@ -199,3 +199,9 @@ CD31.circulatingCells.markers <- FindAllMarkers(object = CD31.circulatingCells, 
 dink<-CD31.circulatingCells.markers %>% group_by(cluster) %>% top_n(20, avg_logFC)
 write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.csv"))
 ```
+
+
+```{r}
+#changes from Wesley
+```
+
