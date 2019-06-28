@@ -88,6 +88,7 @@ CD34.combined <- FindClusters(CD34.combined, resolution = 0.5)
 ```{r}
 outputFolder <- "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/Analysis-David-2019/"
 save(CD34.combined,file = "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/Analysis-David-2019/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData")
+load("/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating-CD34+_HeartFailure_Healthy/Analysis-David-2019/Wesley-PatientData-circulatingCells.unimputed.SeparatedByRun.SecondRun.RData")
 ```
 
 ## 3.1.5)generate TSNE Plots
@@ -160,9 +161,9 @@ save(CD34.combined,file = "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ-circulating
 
 ```{r}
 VlnPlot(object = CD34.combined, features = c("CDKN2A", "CDKN1A"), group.by = "condition")
-FeaturePlot(object = CD34.combined, features = c("IFNG-AS1"), split.by = "orig.ident", )
-
-
+FeaturePlot(object = CD34.combined, features = c("IFNG-AS1"), split.by = "orig.ident")
+FeaturePlot(object = CD34.combined, features = c("CD34"))
+FeaturePlot(object = CD34.combined, features = c("CD34"), split.by = "orig.ident")
 
 FeatureHeatmap(CD31.circulatingCells, features.plot = c("IFNG-AS1"), group.by = "condition")
 FeatureHeatmap(CD31.circulatingCells, features.plot = c("MAN2A1"), group.by = "orig.ident")
