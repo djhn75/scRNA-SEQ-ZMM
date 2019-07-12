@@ -142,8 +142,8 @@ FeatureHeatmap <- function(object, features, group.by=NULL, cols=c("skyblue","re
   }
   
   
-  A <- data.frame(CD34.combined@meta.data)
-  X <- Embeddings(object = CD34.combined, reduction = "tsne")
+  A <- data.frame(object@meta.data)
+  X <- Embeddings(object = object, reduction = "tsne")
   coord = NULL
   for(i in rownames(A)){
     coord <- rbind(coord, c(X[i,], i))
@@ -158,7 +158,7 @@ FeatureHeatmap <- function(object, features, group.by=NULL, cols=c("skyblue","re
   for(i in 1:length(features)){
     a.colnames<-colnames(A)
     a.colnames<-c(a.colnames,paste0(features[i],".exprs"))
-    A <- data.frame(A, x=GetAssayData(CD34.combined, assay = assay)[features[i], ])
+    A <- data.frame(A, x=GetAssayData(object, assay = assay)[features[i], ])
     colnames(A)<-a.colnames
   }
   
