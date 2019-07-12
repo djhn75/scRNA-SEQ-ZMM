@@ -210,64 +210,7 @@ write.csv(dink,file = paste0(outputFolder,"ClusterSpecificMarkers.Wesley-Patient
 
 Draw FeatureHeatmap manually
 ```{r}
-FeatureHeatmap <- function(object, features, group.by=NULL, cols=c("skyblue","red4")) {
-  require(reshape2);require(ggplot2)
-  DefaultAssay(object)<-"RNA"
-  if (!group.by %in% colnames(object@meta.data)) {
-    stop("Grouping parameter was not found in the meta data")
-  }
-  
-  #test if Genes can be found
-  for(i in 1:length(features)){
-    if (!features[i] %in% rownames(object@assays$RNA@data)) {
-      stop("Gene was not found in the Expression Matrix")
-    }
-  }
-  
-
-  A <- data.frame(CD34.combined@meta.data)
-  X <- Embeddings(object = CD34.combined, reduction = "tsne")
-  coord = NULL
-  for(i in rownames(A)){
-    coord <- rbind(coord, c(X[i,], i))
-  }
-  nclusters<-length(table(A[,group.by]))
-  A <- data.frame(A, coord)
-  A$tSNE_1 <- as.numeric(levels(A$tSNE_1)[A$tSNE_1])
-  A$tSNE_2 <- as.numeric(levels(A$tSNE_2)[A$tSNE_2])
-  A$seurat_clusters <- factor(A$seurat_clusters, levels = 0:(nclusters-1))
-  #A$sample_dummy <- as.integer(as.factor(A$sample))
-  
-  for(i in 1:length(features)){
-    a.colnames<-colnames(A)
-    a.colnames<-c(a.colnames,paste0(features[i],".exprs"))
-    A <- data.frame(A, x=GetAssayData(CD34.combined)[features[i], ])
-    colnames(A)<-a.colnames
-  }
-  
-  A.rep<-as.data.frame(lapply(A, rep, nclusters))
-  f3 <- function(variables) {
-    return(names(table(A.rep[,group.by])))
-  }
-  
-  A.rep$Cluster_fate <- ave(rep(NA,nrow(A.rep)), A.rep[,group.by], FUN = f3)
-  
-  #add new column with NA for unfitting cluster and expression value for the correct cluster
-  for (f in features) {
-    A.rep[,f]<-ifelse(A.rep[,group.by]==A.rep$Cluster_fate,A.rep[,paste0(f,".exprs")],NA)
-  }
-  
-  A.melt<-melt(A.rep, measure.vars = colnames(A.rep[,c((ncol(A.rep)-1):ncol(A.rep))]))
-
-  ggplot(A.melt, aes(x=tSNE_1, y= tSNE_2, color = value))+
-    geom_point(size = 0.2)+
-    scale_color_continuous(low = cols[1], high = cols[2], na.value = "grey93", name="Scaled Expression")+
-    facet_grid(c("variable","Cluster_fate"), scales = "free", drop = FALSE)+
-    labs(y="Genes", x= group.by, title = "")+
-    theme_bw()+
-    theme(axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.position = "top", strip.text = element_text(face = "italic"))
-
-}
+source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R") 
 
 FeatureHeatmap(object = CD34.combined, features = c("PECAM1","CD34"), group.by = "sample")
 FeatureHeatmap(object = CD34.combined, features = c("CYTL1","KLF2"), group.by = "seurat_clusters")

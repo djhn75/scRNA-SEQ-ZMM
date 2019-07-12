@@ -127,7 +127,7 @@ combineScImputedSeuratObjectsVST <- function(pathways,ids){
 #' @param features Genes which are plotted
 #' @param group.by Split/Group TSNES by this parameter
 #' @param cols Colors of visible cells
-FeatureHeatmap <- function(object, features, group.by=NULL, cols=c("skyblue","red4")) {
+FeatureHeatmap <- function(object, features, group.by=NULL, cols=c("skyblue","red4"), assay="RNA") {
   require(reshape2);require(ggplot2)
   DefaultAssay(object)<-"RNA"
   if (!group.by %in% colnames(object@meta.data)) {
@@ -158,7 +158,7 @@ FeatureHeatmap <- function(object, features, group.by=NULL, cols=c("skyblue","re
   for(i in 1:length(features)){
     a.colnames<-colnames(A)
     a.colnames<-c(a.colnames,paste0(features[i],".exprs"))
-    A <- data.frame(A, x=GetAssayData(CD34.combined)[features[i], ])
+    A <- data.frame(A, x=GetAssayData(CD34.combined, assay = assay)[features[i], ])
     colnames(A)<-a.colnames
   }
   
