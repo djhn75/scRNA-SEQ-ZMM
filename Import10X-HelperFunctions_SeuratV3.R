@@ -70,7 +70,7 @@ combineSeuratObjects <- function(pathways,ids, performNormalisation = FALSE, per
 
 
 
-library(scImpute)
+#library(scImpute)
 library(Seurat)
 #' Read 10X results and impute the dataset with scImpute
 #' @author David John
@@ -86,7 +86,7 @@ imputeData <- function(pathways,ids, cluster=12, ncores=20, drop_thre=0.5){
     cat("Write temporary Martix to ", path.Matrix)
     write.csv(as.data.frame(as.matrix(Ten_X@assays$RNA@data)), file = path.Matrix)
     cat("Start imputation for ", path.Matrix)
-    scimpute(count_path = path.Matrix, out_dir = path.Imputed.Matrix, Kcluster = cluster, ncores=ncores, drop_thre = drop_thre)
+    #scimpute(count_path = path.Matrix, out_dir = path.Imputed.Matrix, Kcluster = cluster, ncores=ncores, drop_thre = drop_thre)
     cat("Wrote imputed Martix to ", path.Imputed.Matrix)
   }
 }
