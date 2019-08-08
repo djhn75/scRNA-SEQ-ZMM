@@ -11,7 +11,8 @@ library(ggpubr)
 library(Seurat)
 require(scales)
 
-
+# Quick load
+load("/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/Brandes.RData")
 
 source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
 outputFolder<-"/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/"
@@ -160,4 +161,58 @@ top20
 ```
 
 
+## 3.2. Cell cyle analysis
+
+```{r}
+# Import human cell cycle list
+s.genes <- cc.genes$s.genes
+g2m.genes <- cc.genes$g2m.genes
+
+# convert list to mouse
+
+#' Converts a human gene list into mouse
+#' @author Lukas Tombor
+#' @param x A vector containing a list of human genes
+#' @return Converted vector
+convertHumanGeneList <- function(x){
+  
+  require("biomaRt")
+  human = useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+  mouse = useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+  
+  genesV2 = getLDS(attributes = c("hgnc_symbol"), filters = "hgnc_symbol", values = x , mart = human, attributesL = c("mgi_symbol"), martL = mouse, uniqueRows=T)
+  
+  humanx <- unique(genesV2[, 2])
+  
+  # Print the first 6 genes found to the screen
+  print(head(humanx))
+  return(humanx)
+}
+
+s.genes_mouse <- convertHumanGeneList(s.genes)
+g2m.genes_mouse <- convertHumanGeneList(g2m.genes)
+
+# Assign cell cycle scores
+
+SeuratObject.combined <- CellCycleScoring(SeuratObject.combined, s.features = s.genes_mouse, g2m.features = g2m.genes_mouse, set.ident = T)
+
+df <- data.frame(CCscore = SeuratObject.combined$Phase, Sample = SeuratObject.combined$sample)
+
+df.tally <- df %>% group_by(Sample, CCscore) %>% tally() %>% mutate(percent = round(n/sum(n), digits = 4))
+
+df.tally$Sample <- factor(df.tally$Sample, levels = c("Day0", "Day3", "Day7", "Day14"))
+
+plot <- ggplot(df.tally, aes(x=CCscore, y= percent, fill = CCscore))+
+  geom_col(color = "black")+
+  scale_y_continuous(labels = scales::percent_format(), name = "% cells per Timepoint")+
+  facet_grid(~Sample)+
+  labs(title = "Cellcycle Score comparing Timepoints", 
+       x = "Cellcycle Phase")
+setwd(outputFolder)
+save(SeuratObject.combined, file = "Brandes.RData")
+
+pdf(file = "Cellcycle.pdf")
+print(plot)
+dev.off()
+```
 
