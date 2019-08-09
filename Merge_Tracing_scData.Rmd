@@ -17,7 +17,7 @@ library(scales)
 library(hash)
 library(stringr)
 
-
+source(file = "Import10X-HelperFunctions.R")
 ```
 
 ### 1.2. Load datasets
@@ -30,33 +30,6 @@ load("/media/ATLAS_ZMM_shared/David/ForStefanie/Old_animals_tracing/Seurat2_Obje
 
 ### 1.3. Load function
 
-```{r}
-#' Import and combine several Single cell sequencing experiments into Seurat
-#' @author David John
-#' @param pathways A vector of pathways to the cellrancer count output folder (contains barcodes.tsv, genes.tsv, matrix.mtx)
-#' @param ids Vector of strings that are assigned to the concordant cells
-#' @return Merged seurat object
-combineSeuratObjects <- function(pathways,ids){
-  Importer <- function(pathway,id) {
-    Ten_X <- Read10X(pathway)
-    seuratObject =CreateSeuratObject(raw.data = Ten_X, min.cells= 3, min.genes = 200)
-    seuratObject<-RenameCells(object = seuratObject, add.cell.id = id)
-    cat("Imported ", length(seuratObject@ident), " cells from ", pathway, "with ID ", id, "\n")
-    return(seuratObject)
-  }
-  if (length(pathways)!=length(ids)) {stop(" pathways and ids vector need to have the same length")  }
-  for (i in 1:length(pathways)) {
-    if (i<2) { 
-      seuratObject1<-Importer(pathways[i],ids[i])
-      next
-    }
-    seuratObject2<-Importer(pathways[i],ids[i])
-    seuratObject1 <- MergeSeurat(object1 = seuratObject1, object2 = seuratObject2) 
-  }
-  cat("Merged Seurat object contains ", length(seuratObject1@ident)," cells\n")
-  return(seuratObject1)
-}
-```
 
 ## 2. Get GFP+ cells form datasets
 ```{r}
@@ -103,10 +76,6 @@ Anno.old <- c("S_94", "S_97", "S_103", "S_102", "S_116", "S_113", "S_109")
 
 # Additonal Sample information in table
 
-tbl = data.frame(Sample = factor(Anno.old, levels = Anno.old),
-                 Sex = c("female", "female", "female", "female", "male", "male", "male"),
-                 Age = c("16", "16", "16", "16", "16", "16", "16"),
-                 AMI = c("Hom", "3d", "7d", "14d", "Hom", "7d", "14d"))
 
 
 ############# Young data ######################
@@ -125,11 +94,123 @@ Anno.young <- c("d28", "d48", "d14", "d1", "Hom", "d3", "d7")
 
 Paths <- c(Paths.young, Paths_final)
 Anno <- c(Anno.young, Anno.old)
+
+tbl = data.frame(Sample = factor(Anno, levels = Anno),
+                 Sex = c("male","male","male","male","male","male","male","female", "female", "female", "female", "male", "male", "male"),
+                 Age = c(rep("young",7),rep("old",7)),
+                 AMI = c(Anno.young,"Hom", "3d", "7d", "14d", "Hom", "7d", "14d"),
+                 orig.ident = Anno)
+
+
 ```
 
 4. Merge Seurat Objects
 
 ```{r message=FALSE, warning=FALSE}
-Tracing.old.young <- combineSeuratObjects(Paths, ids = Paths)
+Tracing.old.young <- combineSeuratObjects(Paths, ids = Anno)
+Tracing.old.young <- SubsetData(object = Tracing.old.young, cells.use = names(GFP.cells)) 
+```
+
+
+5. Add Meta data
+```{r}
+object<-Tracing.old.young
+meta.data<-tbl
+
+addTableToMetaData<- function(object, meta.data){
+  
+  meta.data %>% mutate_if(is.factor, as.character) -> meta.data
+  rownames(meta.data)<-meta.data$Sample
+  meta.data.assignments<- colnames(meta.data)[-1]
+
+  for (variable in meta.data.assignments) {
+    assign(variable, c())
+  }
+
+  for (barcode in colnames(object@data)) {
+    
+    tmp<-unlist(strsplit(barcode,split = "_"))
+    if (length(tmp)>2) {
+      tmp<-paste0(tmp[1],"_",tmp[2])
+    } else {
+      tmp<-tmp[1]
+    }
+    for (md in meta.data.assignments) {
+      dummy<-get(md)
+      currentValue<-as.character(meta.data[tmp,md])
+      if (is.na(currentValue)) {
+        print("Got NA from " ,md, " ", tmp)
+      }
+      dummy<-c(dummy,currentValue)
+      assign(md,dummy)
+    }
+    
+  }
+  
+  for (md in meta.data.assignments) {
+    dummy<-get(md)
+    names(dummy)<-object@cell.names
+    object<-AddMetaData(object = object,metadata = dummy,col.name = md)
+  }
+  #table(condition)
+  #names(condition)<-Tracing.old.young@cell.names
+  #Tracing.old.young<-AddMetaData(object = Tracing.old.young,metadata = condition,col.name = "condition");rm(condition)
+  return(object)
+}
+
+
+Tracing.old.young.final<-addTableToMetaData(Tracing.old.young, tbl)
+save(Tracing.old.young.final, file = "/media/ATLAS_ZMM_shared/David/ForStefanie/TracingDataMerged.RData")
+
+```
+
+6. run preprocessing steps
+```{r}
+#divide by samplename 
+Tracing.old.young.final<-SetAllIdent(Tracing.old.young.final,id = "orig.ident")
+hvg<-c() #to save high variable genes
+seurat.objects<-list() #list to dave Seurat objects
+for (ident in names(table(Tracing.old.young.final@meta.data$orig.ident))){
+    seuratObject<-SubsetData(Tracing.old.young.final, ident.use = ident)
+    seuratObject<-NormalizeData(object = seuratObject)
+    seuratObject<-FindVariableGenes(object = seuratObject, do.plot = FALSE)
+    seuratObject<-ScaleData(object = seuratObject)
+
+    hvg<-c(hvg,head(rownames(seuratObject@hvg.info), 1000)) #save variable genes
+    seurat.objects<-c(seurat.objects,seuratObject)
+  }
+hvg2 <- names(which(table(hvg) > 1))#check if the variable genes are expressed in all sample
+for (i in 1:length(seurat.objects)) {
+  hv.combined <- hvg2[hvg2 %in% rownames(seurat.objects[[i]]@scale.data)]
+}
+  
+Tracing.old.young.final.CCA<-RunMultiCCA(object.list = seurat.objects,genes.use = hv.combined)
+cat("Merged Seurat object contains ", length(seuratObject@ident)," cells\n")
+```
+
+```{r}
+
+Tracing.old.young.final.CCA <- FindVariableGenes(object = Tracing.old.young.final.CCA)
+Tracing.old.young.final.CCA <- RunPCA(object = Tracing.old.young.final.CCA, features = VariableFeatures(object = Tracing.old.young.final.CCA), verbose = TRUE)
+Tracing.old.young.final.CCA<-ProjectPCA(object = Tracing.old.young.final.CCA, do.print = FALSE)
+PCHeatmap(object = Tracing.old.young.final.CCA, pc.use = 11:20, cells.use = 500, do.balanced = TRUE, label.columns = FALSE, use.full = FALSE)
+Tracing.old.young.final.CCA <- FindClusters(object = Tracing.old.young.final.CCA, reduction.type = "pca", dims.use = 1:20, resolution = 0.6, print.output = 0, save.SNN = TRUE)
+PrintFindClustersParams(object = Tracing.old.young.final.CCA)
+Tracing.old.young.final.CCA <- RunTSNE(object = Tracing.old.young.final.CCA, dims.use = 1:20, do.label=TRUE, do.fast = TRUE)
+
+save(Tracing.old.young.final, file = "/media/ATLAS_ZMM_shared/David/ForStefanie/TracingDataMerged.RData")
+
+```
+
+
+
+```{r}
+Tracing.old.young.final.CCA<- SetAllIdent(object = Tracing.old.young.final.CCA, id = "res.0.6")
+TSNEPlot(object = Tracing.old.young.final.CCA, label=T, pt.size = 0.1, do.return=TRUE)
+
+
+Tracing.old.young.final.CCA<- SetAllIdent(object = Tracing.old.young.final.CCA, id = "AMI")
+TSNEPlot(object = Tracing.old.young.final.CCA, label=T, pt.size = 0.1, do.return=TRUE, )
+
 ```
 
