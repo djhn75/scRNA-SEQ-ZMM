@@ -1,0 +1,135 @@
+---
+title: "Merging all young and old Tracing data"
+output: html_notebook
+author: "Lukas and David"
+date: 09-08-2019
+---
+
+## 1. Load packages, data and functions
+### 1.1. Load packages
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(Seurat)
+library(scales)
+library(hash)
+library(stringr)
+
+
+```
+
+### 1.2. Load datasets
+
+```{r message=FALSE, warning=FALSE}
+load("/media/ATLAS_ZMM_shared/David/ForStefanie/Lukas_Tracing/Not Imputed/Tracing.Rds")
+load("/media/ATLAS_ZMM_shared/David/ForStefanie/Old_animals_tracing/Seurat2_Objects/Seurat_2_Female_old_AMI.Rds")
+load("/media/ATLAS_ZMM_shared/David/ForStefanie/Old_animals_tracing/Seurat2_Objects/Seurat_2_Males_old_AMI.Rds")
+```
+
+### 1.3. Load function
+
+```{r}
+#' Import and combine several Single cell sequencing experiments into Seurat
+#' @author David John
+#' @param pathways A vector of pathways to the cellrancer count output folder (contains barcodes.tsv, genes.tsv, matrix.mtx)
+#' @param ids Vector of strings that are assigned to the concordant cells
+#' @return Merged seurat object
+combineSeuratObjects <- function(pathways,ids){
+  Importer <- function(pathway,id) {
+    Ten_X <- Read10X(pathway)
+    seuratObject =CreateSeuratObject(raw.data = Ten_X, min.cells= 3, min.genes = 200)
+    seuratObject<-RenameCells(object = seuratObject, add.cell.id = id)
+    cat("Imported ", length(seuratObject@ident), " cells from ", pathway, "with ID ", id, "\n")
+    return(seuratObject)
+  }
+  if (length(pathways)!=length(ids)) {stop(" pathways and ids vector need to have the same length")  }
+  for (i in 1:length(pathways)) {
+    if (i<2) { 
+      seuratObject1<-Importer(pathways[i],ids[i])
+      next
+    }
+    seuratObject2<-Importer(pathways[i],ids[i])
+    seuratObject1 <- MergeSeurat(object1 = seuratObject1, object2 = seuratObject2) 
+  }
+  cat("Merged Seurat object contains ", length(seuratObject1@ident)," cells\n")
+  return(seuratObject1)
+}
+```
+
+## 2. Get GFP+ cells form datasets
+```{r}
+Females.GFP <- as.character(Females@meta.data$GFP)
+names(Females.GFP) <- rownames(Females@meta.data)
+
+Males.GFP <- as.character(Males@meta.data$GFP)
+names(Males.GFP) <- rownames(Males@meta.data)
+
+Young.GFP <- as.character(Tracing@meta.data$GFP)
+names(Young.GFP) <- rownames(Tracing@meta.data)
+
+# Remove Tam-Control sample from Young.GFP
+
+Young.GFP <- Young.GFP[str_detect(names(Young.GFP), pattern = "Tam", negate = T)]
+
+# Combine GFP.positives to large vector
+
+GFP.cells <- factor(c(Males.GFP, Females.GFP, Young.GFP))
+
+```
+
+## 3. Read raw data
+
+```{r}
+######## Old data #############################
+
+Paths = c("/media/Helios_scStorage/Lukas/103690/Mapped_to_EGFP/103690-001-004",
+          "/media/Helios_scStorage/Lukas/103690/Mapped_to_EGFP/103690-001-005",
+          "/media/Helios_scStorage/Lukas/103690/Mapped_to_EGFP/103690-001-006",
+          "/media/Helios_scStorage/Lukas/103690/Mapped_to_EGFP/103690-001-007",
+          "/media/Helios_scStorage/Lukas/103690/Mapped_to_EGFP/103690-001-008",
+          "/media/Helios_scStorage/Lukas/103690/Mapped_to_EGFP/103690-001-009",
+          "/media/Helios_scStorage/Lukas/103690/Mapped_to_EGFP/103690-001-010")
+Paths_final = NULL
+for(i in Paths){
+  paths_new = paste0(i, "/outs/filtered_feature_bc_matrix")
+  Paths_final = c(Paths_final, paths_new)
+}
+rm(i, paths_new, Paths)
+
+Anno.old <- c("S_94", "S_97", "S_103", "S_102", "S_116", "S_113", "S_109")
+
+
+# Additonal Sample information in table
+
+tbl = data.frame(Sample = factor(Anno.old, levels = Anno.old),
+                 Sex = c("female", "female", "female", "female", "male", "male", "male"),
+                 Age = c("16", "16", "16", "16", "16", "16", "16"),
+                 AMI = c("Hom", "3d", "7d", "14d", "Hom", "7d", "14d"))
+
+
+############# Young data ######################
+
+Paths.young <- c("/media/ATLAS_NGS_storage/Lukas/Tracer_Dec2018/103548_fastq/103548-001-001_cellrangerCount_CR3.0/001CR3/outs/filtered_feature_bc_matrix",
+       "/media/ATLAS_NGS_storage/Lukas/Tracer_Dec2018/103548_fastq/103548-001-003_cellrangerCount_CR3.0/003CR3/outs/filtered_feature_bc_matrix",
+       "/media/ATLAS_NGS_storage/Lukas/Tracer_Dec2018/103548_fastq/103548-001-005_cellrangerCount_CR3.0/005CR3/outs/filtered_feature_bc_matrix", 
+       "/media/ATLAS_NGS_storage/Lukas/ShallowSCSeq_Tracer_GFP/Fastq_Combined/Tracer_D1_CR3_combined/outs/filtered_feature_bc_matrix",
+       "/media/ATLAS_NGS_storage/Lukas/ShallowSCSeq_Tracer_GFP/Fastq_Combined/Tracer_Hom_CR3_combined/outs/filtered_feature_bc_matrix",
+       "/media/ATLAS_NGS_storage/Lukas/ShallowSCSeq_Tracer_GFP/Fastq_Combined/Tracer_D3_CR3_combined/outs/filtered_feature_bc_matrix",
+       "/media/ATLAS_NGS_storage/Lukas/ShallowSCSeq_Tracer_GFP/Fastq_Combined/Tracer_D7_CR3_combined/outs/filtered_feature_bc_matrix")
+
+Anno.young <- c("d28", "d48", "d14", "d1", "Hom", "d3", "d7")
+
+# Combine young and old
+
+Paths <- c(Paths.young, Paths_final)
+Anno <- c(Anno.young, Anno.old)
+```
+
+4. Merge Seurat Objects
+
+```{r message=FALSE, warning=FALSE}
+Tracing.old.young <- combineSeuratObjects(Paths, ids = Paths)
+```
+
