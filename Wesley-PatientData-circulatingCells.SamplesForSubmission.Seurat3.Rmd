@@ -1,0 +1,106 @@
+---
+title: "Circulating cells from Patient Cohorts (Seurat3)"
+output: html_notebook
+---
+
+#1.) Unimputed Data (Both Runs Combined)
+## 1.1) Import packages
+```{r message=FALSE}
+#load libraries
+library(dplyr)
+library(ggpubr)
+
+require(scales)
+
+
+
+source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
+sink(file = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019-Seurat3/Unimputed/SamplesForSubmission/Wesley-PatientData-circulatingCells.rmd.log", append = TRUE, split = TRUE)
+```
+
+
+## 1.2) Define static parameters
+```{r}
+#Static Parameters 
+Paths <- c(
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-003/outs/filtered_feature_bc_matrix/",
+  
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-004/outs/filtered_feature_bc_matrix/",
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-005/outs/filtered_feature_bc_matrix/",
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-006/outs/filtered_feature_bc_matrix/",
+  
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-007/outs/filtered_feature_bc_matrix/",
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-008/outs/filtered_feature_bc_matrix/",
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-009/outs/filtered_feature_bc_matrix/",
+  
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy_Run2/103588-001-012/outs/filtered_feature_bc_matrix/",
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-001/outs/filtered_feature_bc_matrix/",
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-002/outs/filtered_feature_bc_matrix/",
+
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-003/outs/filtered_feature_bc_matrix/",
+  
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-004/outs/filtered_feature_bc_matrix/",
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-005/outs/filtered_feature_bc_matrix/",
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-006/outs/filtered_feature_bc_matrix/",
+  
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-007/outs/filtered_feature_bc_matrix/",
+  "/media/ATLAS_NGS_storage/Wesley/scRNA-SEQ_circulating-CD31+_HeartFailure_Healthy/103305-001-008/outs/filtered_feature_bc_matrix/")
+
+
+Samplenames <- c("HF-2.1",
+"HF-2.2","HF-2.3","HF-2.4",
+"HC2.1","HC2.2","HC2.3",
+"HCY2.1","HCY1.1","HCY1.2",
+"HCY1.3","HCY1.4","HF1.1",
+"HF1.2","HF1.3","HF1.4")
+```
+
+
+## 1.3) import and combine the raw cellranger counts with CCA
+```{r}
+SeuratObjectList <- list()
+for (i in 1:length(Paths)) {
+  SeuratObjectList[[i]]<-Importer(pathway = Paths[i],id = Samplenames[i])
+}
+```
+```{r}
+for (i in 1:length(SeuratObjectList)) {
+  print(i)
+  tmp<-SeuratObjectList[[i]]
+  tmp<-ScaleData(object = tmp)
+  tmp<-RunPCA(object = tmp, verbose = FALSE, ndims.print = 0)
+  DimHeatmap(object = tmp, dims = 1:15, )
+  gg<-ElbowPlot(tmp, ndims = 10) + labs(title=as.character(i))
+  print(gg)
+}
+```
+
+
+```{r}
+CD31.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:10, k.filter = 150)
+CD31.combined <- IntegrateData(anchorset = CD34.anchors, dims = 1:10)
+
+
+```
+
+
+```{r}
+DefaultAssay(object = CD31.combined) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+CD31.combined <- ScaleData(object = CD31.combined, verbose = FALSE)
+CD31.combined <- RunPCA(object = CD31.combined, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+CD31.combined <- RunUMAP(object = CD31.combined, reduction = "pca", dims = 1:20)
+CD31.combined <- FindNeighbors(object = CD31.combined, reduction = "pca", dims = 1:20)
+CD31.combined <- FindClusters(CD31.combined, resolution = 0.5)
+```
+
+```{r}
+CircResBothCohortsMonocytes.final<-readRDS("/media/ATLAS_NGS_storage/Wesley/CircRes2019/CircResBothCohortsMonocytes.final.Seurat3.Rds")
+
+"/media/ATLAS_NGS_storage/Wesley/Wesley-Study-Table-for statistics_08052019_updated.csv"
+
+  
+```
+
