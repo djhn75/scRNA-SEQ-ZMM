@@ -962,6 +962,167 @@ p + geom_bar(stat = "identity", color="black", position = position_dodge(), ) +
 ```
 
 
+###3.1.8.) Run Monocle for both cohorts CircRes Samples
+```{r}
+library(Matrix)
+#############################################
+########        Export Seurat       #########
+#############################################
+#Extract data, phenotype data, and feature data from the SeuratObject
+
+data <- as.sparseMatrix(as.matrix(BothCohortsMonocytes@scale.data))
+sparsm
+
+pd <- new('AnnotatedDataFrame', data = BothCohortsMonocytes@meta.data)
+
+fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
+fd <- new('AnnotatedDataFrame', data = fData)
+
+#Construct monocle cds
+BothCohortsMonocytesMonocle <- newCellDataSet(data,
+                         phenoData = pd,
+                         featureData = fd,
+                         lowerDetectionLimit = 0.5,
+                         expressionFamily = negbinomial.size())
+
+#############################################
+########      import to Monocle     #########
+#############################################
+library(monocle)
+BothCohortsMonocytesMonocle <- estimateSizeFactors(BothCohortsMonocytesMonocle)
+BothCohortsMonocytesMonocle <- estimateDispersions(BothCohortsMonocytesMonocle)
+BothCohortsMonocytesMonocle <- detectGenes(BothCohortsMonocytesMonocle, min_expr = 0.1)
+expressed_genes <- row.names(subset(fData(BothCohortsMonocytesMonocle), num_cells_expressed >= 10))
+
+
+# Log-transform each value in the expression matrix.
+L <- log(exprs(BothCohortsMonocytesMonocle[expressed_genes,]))
+
+# Standardize each gene, so that they are all on the same scale,
+# Then melt the data with plyr so we can plot it easily
+melted_dens_df <- melt(Matrix::t(scale(Matrix::t(L))))
+
+# Plot the distribution of the standardized gene expression values.
+qplot(value, geom = "density", data = melted_dens_df) +  stat_function(fun = dnorm, size = 0.5, color = 'red') +  xlab("Standardized log(FPKM)") +  ylab("Density")
+
+
+pData(H1Monocle)$Total_mRNAs <- Matrix::colSums(exprs(H1Monocle))
+pData(H1Monocle)
+
+
+###########################################################
+####    add parameters and conditions to Monocle    #######
+###########################################################
+patient_id <- c()
+condition <- c()
+for (barcode in rownames(pData(H1Monocle))){
+  patient<-substr(barcode,(nchar(barcode)+1)-1,nchar(barcode)) #get last charackter of barcode, which represents the pattients
+  patient_id<-c(patient_id,patient)
+  if (patient %in% c('1','2','3','4')) { condition<-c(condition,"control") }
+  else if (patient %in% c('5','6','7','8')) {condition<-c(condition,"heartFailure")}
+  else {print("unexpected patient_id")}
+}
+pData(H1Monocle)$condition <- condition
+pData(H1Monocle)$patient_id <- patient_id
+
+
+##############################################
+####    Quality control for Monocle    #######
+##############################################
+H1Monocle <- H1Monocle[,pData(H1Monocle)$Total_mRNAs < 1e6]
+upper_bound <- 10^(mean(log10(pData(H1Monocle)$Total_mRNAs)) + 2*sd(log10(pData(H1Monocle)$Total_mRNAs)))
+lower_bound <- 10^(mean(log10(pData(H1Monocle)$Total_mRNAs)) -  2*sd(log10(pData(H1Monocle)$Total_mRNAs)))
+
+qplot(Total_mRNAs, data = pData(H1Monocle), geom = "density") +  geom_vline(xintercept = lower_bound) + geom_vline(xintercept = upper_bound)
+
+disp_table <- dispersionTable(H1Monocle)
+unsup_clustering_genes <- subset(disp_table, mean_expression >= 1.0)
+H1Monocle <- setOrderingFilter(H1Monocle, unsup_clustering_genes$gene_id)
+plot_ordering_genes(H1Monocle)
+
+
+# HSMM@auxClusteringData[["tSNE"]]$variance_explained <- NULL
+plot_pc_variance_explained(H1Monocle, return_all = F) # norm_method='log'
+
+######################################################
+####    unsupervised clustering for Monocle    #######
+######################################################
+H1Monocle <- reduceDimension(H1Monocle, max_components = 6, num_dim = 6, reduction_method = 'tSNE', residualModelFormulaStr = "~nUMI + num_genes_expressed", verbose = T)
+H1Monocle <- clusterCells(H1Monocle, num_clusters = 6)
+plot_cell_clusters(H1Monocle, 1, 2, color = "patient_id")
+plot_cell_clusters(H1Monocle, 1, 2, color = "condition")
+plot_cell_clusters(H1Monocle, 1, 2, color = "Cluster")
+
+
+#detect differential genes between healthy and disease
+diffGenesCondition <- differentialGeneTest(H1Monocle, fullModelFormulaStr = "~condition", cores = 15)
+# Select genes that are significant at an FDR < 10%
+sig_genes <- subset(diffGenesCondition, qval < 0.01)
+sig_genes <- sig_genes[order(sig_genes$qval),]
+head(sig_genes)
+
+diffGenesControlDisease <- H1Monocle[row.names(subset(fData(H1Monocle), gene_short_name %in% c("IL1B","S100A9", "S100A8","CYP1B1", "CXCL8"))),]
+plot_genes_jitter(diffGenesControlDisease, grouping = "condition", color_by = "condition", nrow= 1, ncol = 5, plot_trend = TRUE, relative_expr = T)
+
+##########################################
+####    create cell trajectorys    #######
+##########################################
+to_be_tested <- row.names(subset(fData(H1Monocle), gene_short_name %in% c("S100A9", "S100A8", "CYP1B1", "IL1B","CXCL8","CXCL3")))
+cds_subset <- H1Monocle[to_be_tested,]
+
+#select the top 1000 significant genes as the ordering genes.
+H1_ordering_genes <-  row.names(diffGenesCondition)[order(diffGenesCondition$qval)][1:1000]
+H1Monocle <-  setOrderingFilter(H1Monocle, ordering_genes = H1_ordering_genes)
+
+H1Monocle <- reduceDimension(H1Monocle, method = 'DDRTree')
+
+H1Monocle <- orderCells(H1Monocle)
+
+GM_state <- function(cds){
+  if (length(unique(pData(cds)$State)) > 1){
+    T0_counts <- table(pData(cds)$State, pData(cds)$condition)[,"0"]
+    return(as.numeric(names(T0_counts)[which(T0_counts == max(T0_counts))]))
+  } else {
+    return (1)
+  }
+}
+
+
+H1Monocle <- orderCells(H1Monocle, root_state = GM_state(H1Monocle))
+
+plot_cell_trajectory(H1Monocle, color_by = "condition")
+plot_cell_trajectory(H1Monocle, color_by = "patient_id") + facet_wrap(~patient_id, nrow = 1)
+
+#find trajectory specific genes
+BEAM_res <- BEAM(H1Monocle, branch_point = 1, cores = 1);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
+BEAM_res_all<-data.frame(BEAM_res,branchPoint=1)
+BEAM_res <- BEAM(H1Monocle, branch_point = 2, cores = 1);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
+BEAM_res_all<-rbind(BEAM_res_all,data.frame(BEAM_res,branchPoint=2))
+#BEAM_res <- BEAM(H1Monocle, branch_point = 3, cores = 1);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
+#BEAM_res_all<-rbind(BEAM_res_all,data.frame(BEAM_res,branchPoint=3))
+#BEAM_res <- BEAM(H1Monocle, branch_point = 4, cores = 1);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
+#BEAM_res_all<-rbind(BEAM_res_all,data.frame(BEAM_res,branchPoint=4))
+
+BEAM_res_all_filtered <- subset(BEAM_res_all,qval < 0.1)
+setwd("/media/ATLAS_NGS_storage/Wesley/singlecell_Jan_2018/103305_aggrogated/outs/Monocle-Analysis")
+write.csv2(BEAM_res_all_filtered, file="BranchSpecificGenes_04.11.18.csv")
+BEAM_res <- BEAM(H1Monocle, cores = 9);BEAM_res <- BEAM_res[order(BEAM_res$qval),]
+BEAM_res <- BEAM_res[,c("gene_short_name", "pval", "qval")]
+#plot Heatmap
+plot_genes_branched_heatmap(H1Monocle[row.names(subset(BEAM_res,qval < 1e-7)),],branch_point = 1,num_clusters = 4, cores = 1,use_gene_short_name = T,show_rownames = T)
+
+
+blast_genes <- row.names(subset(fData(H1Monocle), gene_short_name %in% c("S100A9", "S100A8", "CYP1B1", "IL1B","CXCL8","CXCL3")))
+plot_genes_jitter(H1Monocle[blast_genes,], grouping = "condition", min_expr = 0.1)
+
+cds_subset <- H1Monocle[blast_genes,]
+plot_genes_in_pseudotime(cds_subset, color_by = "condition")
+
+
+```
+
+
+
 
 
 # _

@@ -78,7 +78,7 @@ for (i in 1:length(SeuratObjectList)) {
 
 ```{r}
 CD31.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:10, k.filter = 150)
-CD31.combined <- IntegrateData(anchorset = CD34.anchors, dims = 1:10)
+CD31.combined <- IntegrateData(anchorset = CD31.anchors, dims = 1:10)
 
 
 ```
@@ -86,20 +86,22 @@ CD31.combined <- IntegrateData(anchorset = CD34.anchors, dims = 1:10)
 
 ```{r}
 DefaultAssay(object = CD31.combined) <- "integrated"
+DefaultAssay(object = CD31.combined) <- "integrated"
 
 # Run the standard workflow for visualization and clustering
 CD31.combined <- ScaleData(object = CD31.combined, verbose = FALSE)
 CD31.combined <- RunPCA(object = CD31.combined, npcs = 30, verbose = FALSE)
 # t-SNE and Clustering
-CD31.combined <- RunUMAP(object = CD31.combined, reduction = "pca", dims = 1:20)
+#CD31.combined <- RunUMAP(object = CD31.combined, reduction = "pca", dims = 1:20)
+CD31.combined <- RunTSNE(object = CD31.combined, reduction = "pca", dims = 1:20)
 CD31.combined <- FindNeighbors(object = CD31.combined, reduction = "pca", dims = 1:20)
 CD31.combined <- FindClusters(CD31.combined, resolution = 0.5)
 ```
 
 ```{r}
-CircResBothCohortsMonocytes.final<-readRDS("/media/ATLAS_NGS_storage/Wesley/CircRes2019/CircResBothCohortsMonocytes.final.Seurat3.Rds")
+CD31.combined<-readRDS("/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019-Seurat3/Unimputed/SamplesForSubmission/CD31_SamplesForSubmission_Seurat3_Sep2019.Rds")
+saveRDS(CD31.combined,"/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019-Seurat3/Unimputed/SamplesForSubmission/CD31_SamplesForSubmission_Seurat3_Sep2019.Rds")
 
-"/media/ATLAS_NGS_storage/Wesley/Wesley-Study-Table-for statistics_08052019_updated.csv"
 
   
 ```
