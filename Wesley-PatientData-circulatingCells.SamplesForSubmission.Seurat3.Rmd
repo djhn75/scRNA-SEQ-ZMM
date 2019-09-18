@@ -106,3 +106,40 @@ saveRDS(CD31.combined,"/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019-Seurat
   
 ```
 
+```{r}
+library(monocle)
+library(Seurat)
+library(monocle3)
+library(htmlwidgets)
+
+# part one, gene annotations
+
+gene_annotation <- as.data.frame(rownames(CD31.combined@reductions[["pca"]]@feature.loadings), row.names = rownames(CD31.combined@reductions[["pca"]]@feature.loadings))
+colnames(gene_annotation) <- "gene_short_name"
+
+# part two, cell information
+
+cell_metadata <- as.data.frame(CD31.combined@assays[["RNA"]]@counts@Dimnames[[2]], row.names = CD31.combined@assays[["RNA"]]@counts@Dimnames[[2]])
+colnames(cell_metadata) <- "barcode"
+
+# part three, counts sparse matrix
+
+New_matrix <- CD31.combined@assays[["RNA"]]@counts
+New_matrix <- New_matrix[rownames(CD31.combined@reductions[["pca"]]@feature.loadings), ]
+expression_matrix <- New_matrix
+
+
+### Construct the basic cds object
+cds_from_seurat <- newCellDataSet(cellData = expression_matrix, phenoData = cell_metadata, featureData = gene_annotation)
+cds_from_seurat <- new_cell_data_set(expression_matrix,
+                                     cell_metadata = cell_metadata,
+                                     gene_metadata = gene_annotation)
+
+
+
+
+
+importCDS(CD31.combined)
+
+```
+
