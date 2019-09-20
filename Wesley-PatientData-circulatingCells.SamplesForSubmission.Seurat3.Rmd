@@ -106,6 +106,102 @@ saveRDS(CD31.combined,"/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019-Seurat
   
 ```
 
+#add condition meta data
+```{r}
+condition<-c()
+for (ident in CD31.combined@meta.data$orig.ident) {
+  tmp<- substr(ident, 1,2)
+  condition<-c(condition,tmp)
+}
+names(condition)<-names(CD31.combined@active.ident)
+CD31.combined$condition<-condition
+```
+
+```{r}
+table(condition)
+table(CD31.combined@meta.data$orig.ident)
+table(CD31.combined$condition)
+CD31.combined$s
+```
+
+#plot TSNE's
+```{r}
+DimPlot(object = CD31.combined, label=T, pt.size = 0.1, do.return=TRUE)
+DimPlot(object = CD31.combined, group.by = "orig.ident", pt.size = 0.001, split.by = "condition")
+DimPlot(object = CD31.combined, group.by = "seurat_clusters", pt.size = 0.001, split.by = "orig.ident")
+
+```
+
+```{r}
+DimHeatmap(CD31.combined, dims = 1:5, nfeatures = 50, balanced = TRUE, reduction = "pca", fast = TRUE)
+
+CD31.combined=BuildClusterTree(CD31.combined,reorder = TRUE)
+PlotClusterTree(object = CD31.combined)
+
+```
+
+
+```{r}
+# Annotation markers
+
+B.Cell.Annotationmarkers <- c("CD79A", "CD79B", "MS4A1", "CD19", "CD72", "CD40", "CD22")
+CD4.T.Cell.Annotationmarkers <- c("LDHB", "CD3D", "CD3E", "CD27", "CD2", "CD3G", "CD7", "CD69", "CD4", "CTLA4", "LCK", "CD28")
+CD.8.T.Cell.Annotationmarkers <- c("CD8A", "CD3D", "CD8B", "CD3E", "CD2", "CD160", "CD247", "CD320")
+CD14.Monocytes.Annotationmarkers <- c("FCN1", "S100A8", "S100A9", "S100A12", "FCGR1A", "TREM1", "LGALS1", "CD14", "CST3", "FTL")
+Dendritic.Cell.Annotationmarkers <- c("CLEC10A", "CLEC4C", "CLIC2", "PKIB", "GAS6", "SERPINF2", "LILRA4", "ENHO", "PON2", "PHLDA2")
+FCGR3A.Monocyte.Annotationmarkers <- c("HES4", "CDKN1C", "MS4A7", "FCGR3A", "HMOX1")
+General.Monocytes.Annotationmarkers <- c("FCN1", "S100A8", "S100A9", "S100A12",  "LGALS1", "CD14", "CDKN1C", "MS4A7", "FCGR3A", "HMOX1")
+Megakaryocyte.Annotationmarkers <- c("ITGA2B", "PF4", "ITGB3")
+NK.cell.Annotationmarkers <- c("FGFBP2", "XCL2", "SPON2", "KLRC1",  "KIR3DL1", "KLRD1")
+Neutrophil.Annotation.markers <- c("ELANE", "FUT4")
+Collective.markers.annotation <- c("ELANE", "FUT4", "FGFBP2", "XCL2", "SPON2","FCGR3A", "KLRC1",  "KIR3DL1", "KLRD1", "ITGA2B", "ITGB3", "CD79A", "CD79B", "MS4A1", "CD19", "CD72", "CD40", "CD22", "CD8A", "CD8B", "LDHB", "CD3D", "CD3E", "CD27", "CD2", "CD3G", "HMOX1", "CDKN1C", "MS4A7",   "FCN1", "S100A8", "S100A9", "S100A12",  "LGALS1", "CD14")
+
+
+# Visualize expression of markers by cluster (set ident to res.XXXX)
+
+DotPlot(object = CD31.combined, features = Collective.markers.annotation, assay = "RNA", cols.use = c("gray99", "blue"), plot.legend = T, x.lab.rot = 45)
+```
+
+#subset Monocytes
+```{r}
+Idents(CD31.combined)<-"seurat_clusters" 
+
+CD31.combined.Monocytes <- WhichCells(object = CD31.combined, idents = c(1,2))
+
+CD31.combined.Monocytes <- subset(x=CD31.combined, idents = c(1,2,3,5,6,7,8,12,13,15,17,18))
+
+saveRDS(CD31.combined.Monocytes,"/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019-Seurat3/Unimputed/SamplesForSubmission/CD31_SamplesForSubmission_Monocytes_Seurat3_Sep2019.Rds")
+
+table(CD31.combined.Monocytes@meta.data$seurat_clusters)
+CD31.combined.Monocytes <- RunPCA(object = CD31.combined.Monocytes, npcs = 20, verbose = TRUE)
+# t-SNE and Clustering
+#CD31.combined.Monocytes <- RunUMAP(object = CD31.combined.Monocytes, reduction = "pca", dims = 1:20)
+CD31.combined.Monocytes <- RunTSNE(object = CD31.combined.Monocytes, reduction = "pca", dims = 1:20)
+CD31.combined.Monocytes <- FindNeighbors(object = CD31.combined.Monocytes, reduction = "pca", dims = 1:20)
+CD31.combined.Monocytes <- FindClusters(CD31.combined.Monocytes, resolution = 0.5)
+```
+
+
+
+```{r}
+DimPlot(object = CD31.combined.Monocytes, label=T, pt.size = 0.1, do.return=TRUE)
+DimPlot(object = CD31.combined.Monocytes, label=T, pt.size = 0.1, do.return=TRUE, split.by = "condition")
+
+FeaturePlot(CD31.combined.Monocytes, features = c("CD14", "FCGR3A"))
+```
+
+
+
+
+#Subset T-Cells
+#reclusters T-cells
+
+
+
+
+
+
+#run Monocle
 ```{r}
 library(monocle)
 library(Seurat)
