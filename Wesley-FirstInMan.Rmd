@@ -1,0 +1,18 @@
+---
+title: "First in man study from Patient Cohorts (Seurat3)"
+output: html_notebook
+---
+  
+# 1.) Import packages
+```{r message=FALSE}
+#load libraries
+library(dplyr)
+library(ggpubr)
+
+require(scales)
+
+
+
+source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
+sink(file = "/media/Helios_scStorage/Wesley/103773-001/FirstInMan.rmd.log", append = TRUE, split = TRUE)
+```
