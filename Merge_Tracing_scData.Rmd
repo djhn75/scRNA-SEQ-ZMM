@@ -43,7 +43,6 @@ Young.GFP <- as.character(Tracing@meta.data$GFP)
 names(Young.GFP) <- rownames(Tracing@meta.data)
 
 # Remove Tam-Control sample from Young.GFP
-
 Young.GFP <- Young.GFP[str_detect(names(Young.GFP), pattern = "Tam", negate = T)]
 
 # Combine GFP.positives to large vector
@@ -198,7 +197,7 @@ Tracing.old.young.final.CCA <- FindClusters(object = Tracing.old.young.final.CCA
 PrintFindClustersParams(object = Tracing.old.young.final.CCA)
 Tracing.old.young.final.CCA <- RunTSNE(object = Tracing.old.young.final.CCA, dims.use = 1:20, do.label=TRUE, do.fast = TRUE)
 
-save(Tracing.old.young.final, file = "/media/ATLAS_ZMM_shared/David/ForStefanie/TracingDataMerged.RData")
+save(Tracing.old.young.final.CCA, file = "/media/ATLAS_ZMM_shared/David/ForStefanie/TracingDataMerged.RData")
 
 ```
 
@@ -212,5 +211,197 @@ TSNEPlot(object = Tracing.old.young.final.CCA, label=T, pt.size = 0.1, do.return
 Tracing.old.young.final.CCA<- SetAllIdent(object = Tracing.old.young.final.CCA, id = "AMI")
 TSNEPlot(object = Tracing.old.young.final.CCA, label=T, pt.size = 0.1, do.return=TRUE, )
 
+```
+
+```{r}
+load("/media/ATLAS_ZMM_shared/David/ForStefanie/TracingDataMerged.RData")
+```
+
+
+```{r}
+
+table(Tracing.old.young.final.CCA@meta.data$Age)
+table(Tracing.old.young.final.CCA@meta.data$orig.ident)
+table(Tracing.old.young.final.CCA@meta.data$Sex)
+table(Tracing.old.young.final.CCA@meta.data$AMI)
+table(Tracing.old.young.final.CCA@meta.data$res.0.6)
+#table(Tracing@meta.data$GFP)
+
+
+Tracing.old.young.final.CCA@meta.data %>% group_by(Age,AMI) %>% tally()
+Tracing.old.young.final.CCA@meta.data %>% group_by(Age,res.0.6) %>% tally()
+Tracing.old.young.final.CCA@meta.data %>% group_by(AMI,Sex,Age) %>% tally()
+
+
+```
+
+```{r}
+FeaturePlot(Tracing.old.young.final.CCA, features.plot = c("EGFP"))
+
+```
+
+
+```{r}
+Tracing.old.young.final.CCA<- SetAllIdent(object = Tracing.old.young.final.CCA, id = "res.0.6")
+DimPlot(object = Tracing.old.young.final.CCA, label=T, pt.size = 0.1, do.return=TRUE, label.size = 7, group.by = "res.0.6", reduction.use = "tsne", do.label = T)
+DimPlot(object = Tracing.old.young.final.CCA, label=T, pt.size = 0.1, do.return=TRUE, label.size = 7, group.by = "AMI", reduction.use = "tsne", do.label = F)
+```
+
+Find markers
+```{r}
+Tracing.old.young.final.CCA.marker <- FindAllMarkers(Tracing.old.young.final.CCA, only.pos = TRUE, print.bar = T)
+```
+
+
+```{r}
+top20<-Tracing.old.young.final.CCA.marker %>% group_by(cluster) %>% top_n(10, avg_logFC)
+```
+
+subset Endothelial Cells
+```{r}
+Tracing.old.young.final.CCA.EndothelialCells <- SubsetData(Tracing.old.young.final.CCA, ident.use = c(3,8,20))
+```
+
+Divide Old Young and calculate Average Expression
+```{r}
+Tracing.old.young.final.CCA.EndothelialCells <- SetAllIdent(object = Tracing.old.young.final.CCA.EndothelialCells, id = "Age")
+Tracing.old.EndothelialCells <- SubsetData(Tracing.old.young.final.CCA.EndothelialCells, ident.use = "old")
+Tracing.young.EndothelialCells <- SubsetData(Tracing.old.young.final.CCA.EndothelialCells, ident.use = "young")
+
+
+Tracing.young.EndothelialCells <- SetAllIdent(object = Tracing.young.EndothelialCells, id = "AMI")
+#subset the timepoint that exdist for the old dataset
+Tracing.young.EndothelialCells <- SubsetData(Tracing.young.EndothelialCells, ident.use = c("Hom","d3","d7","d14"))
+
+Tracing.old.EndothelialCells <- SetAllIdent(object = Tracing.old.EndothelialCells, id = "AMI")
+```
+
+calculate average expression ond fold change between old and young
+```{r}
+df1<- AverageExpression(Tracing.young.EndothelialCells, )
+df2<- AverageExpression(Tracing.old.EndothelialCells)
+
+dfCombined <- cbind(df1,df2)
+
+dftmp2<-data.frame()
+for (gene in rownames(dfCombined)) {
+  if (max(dfCombined[gene,]) > 0.1) {
+    dftmp2<-rbind(dftmp2,dfCombined[gene,])
+  }
+}
+
+df1<-dftmp2[,1:4]
+df2<-dftmp2[,5:8]
+
+fc_df1_df2<-log2(df1/df2)
+is.na(fc_df1_df2)<-sapply(fc_df1_df2, is.infinite)
+fc_df1_df2[is.na(fc_df1_df2)]<-0
+
+#delete rows were all values are 0
+fc_df1_df2<-fc_df1_df2[rowSums(fc_df1_df2[,] > 0) != 0, ]
+
+#reorder colums
+df.final <- data.frame(Gene = rownames(fc_df1_df2),Hom=fc_df1_df2$Hom, d3=fc_df1_df2$d3, d7=fc_df1_df2$d7, d14=fc_df1_df2$d14)
+write.table(x = df.final, file = "/media/ATLAS_ZMM_shared/David/LukasTracingCombined/Averaged_log2_FoldChange_YoungVsOld_EndothelialCells.csv", sep = "\t", dec = ".", row.names = FALSE, col.names = TRUE)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+FeaturePlot(Tracing.old.young.final.CCA, features.plot = c("Col1a2","Col6a1"))
+
+```
+
+
+
+
+subset Monocytes
+```{r}
+Tracing.old.young.final.CCA.Monocytes <- SubsetData(Tracing.old.young.final.CCA, ident.use = c(0,1))
+```
+
+Divide Old Young and calculate Average Expression
+```{r}
+Tracing.old.young.final.CCA.Monocytes <- SetAllIdent(object = Tracing.old.young.final.CCA.Monocytes, id = "Age")
+Tracing.old.final.CCA.Monocytes <- SubsetData(Tracing.old.young.final.CCA.Monocytes, ident.use = "old")
+Tracing.young.final.CCA.Monocytes <- SubsetData(Tracing.old.young.final.CCA.Monocytes, ident.use = "young")
+
+
+Tracing.young.final.CCA.Monocytes <- SetAllIdent(object = Tracing.young.final.CCA.Monocytes, id = "AMI")
+#subset the timepoint that exdist for the old dataset
+Tracing.young.final.CCA.Monocytes <- SubsetData(Tracing.young.final.CCA.Monocytes, ident.use = c("Hom","d3","d7","d14"))
+
+Tracing.old.final.CCA.Monocytes <- SetAllIdent(object = Tracing.old.final.CCA.Monocytes, id = "AMI")
+```
+
+calculate average expression ond fold change between old and young
+```{r}
+df1<- AverageExpression(Tracing.young.final.CCA.Monocytes, )
+df2<- AverageExpression(Tracing.old.final.CCA.Monocytes)
+
+dfCombined <- cbind(df1,df2)
+
+dftmp2<-data.frame()
+for (gene in rownames(dfCombined)) {
+  if (max(dfCombined[gene,]) > 0.1) {
+    dftmp2<-rbind(dftmp2,dfCombined[gene,])
+  }
+}
+
+df1<-dftmp2[,1:4]
+df2<-dftmp2[,5:8]
+
+fc_df1_df2<-log2(df1/df2)
+is.na(fc_df1_df2)<-sapply(fc_df1_df2, is.infinite)
+fc_df1_df2[is.na(fc_df1_df2)]<-0
+
+#delete rows were all values are 0
+fc_df1_df2<-fc_df1_df2[rowSums(fc_df1_df2[,] > 0) != 0, ]
+
+#reorder colums
+df.final <- data.frame(Gene = rownames(fc_df1_df2),Hom=fc_df1_df2$Hom, d3=fc_df1_df2$d3, d7=fc_df1_df2$d7, d14=fc_df1_df2$d14)
+write.table(x = df.final, file = "/media/ATLAS_ZMM_shared/David/LukasTracingCombined/Averaged_log2_FoldChange_YoungVsOld_Monocytes.csv", sep = "\t", dec = ".", row.names = FALSE, col.names = TRUE)
+
+```
+
+
+```{r}
+VlnPlot(Tracing.old.final.CCA.Monocytes, features.plot = "Foxj2" )
+VlnPlot(Tracing.young.final.CCA.Monocytes, features.plot = "Foxj2" )
+
+VlnPlot(Tracing.old.EndothelialCells, features.plot = "Foxj2" )
+VlnPlot(Tracing.young.EndothelialCells, features.plot = "Foxj2" )
+
+FeaturePlot(Tracing.old.final.CCA.Monocytes, features.plot = "Elk1", min.cutoff = 0, max.cutoff = 1)
+FeaturePlot(Tracing.young.final.CCA.Monocytes, features.plot = "Elk1", min.cutoff = 0, max.cutoff = 1)
 ```
 

@@ -1,6 +1,8 @@
 ---
 title: "First in man study from Patient Cohorts (Seurat3)"
 output: html_notebook
+editor_options: 
+  chunk_output_type: inline
 ---
   
 # 1.) Import packages
@@ -8,11 +10,332 @@ output: html_notebook
 #load libraries
 library(dplyr)
 library(ggpubr)
-
+library(reshape2)
 require(scales)
+library(ggplot2)
 
-
-
+ 
 source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
 sink(file = "/media/Helios_scStorage/Wesley/103773-001/FirstInMan.rmd.log", append = TRUE, split = TRUE)
 ```
+
+
+## 1.2) Define static parameters
+```{r}
+#Static Parameters 
+Paths <- c("/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-001/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-002/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-003/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-004/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-005/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-006/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-007/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-008/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-009/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-010/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-011/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-012/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-013/outs/filtered_feature_bc_matrix",
+"/media/Helios_scStorage/Wesley/103773-001/cellranger/103773-001-014/outs/filtered_feature_bc_matrix"
+)
+
+
+Samplenames <- c("Pat127_D1_predose_1.5","Pat127_D4_1.5","Pat128_D1_predose_Placebo",
+"Pat128_D4_Placebo","Pat132_D1_predose_1.5","Pat132_D4_1.5",
+"Pat130_D1_predose_Placebo","Pat130_D4_Placebo","Pat129_D1_predose_1.5",
+"Pat129_D4_1.5","Pat142_D1_predose_1.5","Pat142_D4_1.5",
+"Pat137_D1_predose_1.5","Pat137_D4_1.5")
+```
+
+
+## 1.3) import and combine the raw cellranger counts with CCA
+```{r}
+SeuratObjectList <- list()
+for (i in 1:length(Paths)) {
+  SeuratObjectList[[i]]<-Importer(pathway = Paths[i],id = Samplenames[i], performNormalisation = TRUE, performVariableGeneDetection = TRUE, FilterCells = TRUE)
+}
+```
+
+```{r}
+for (i in 1:length(SeuratObjectList)) {
+  tmpid<-levels(Idents(SeuratObjectList[[i]]))
+  print(tmpid)
+  
+  tmp<-SeuratObjectList[[i]]
+  gg <- VlnPlot(object = tmp, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3, group.by = "orig.ident") + ggtitle(tmpid)
+  print(gg)
+  tmp<-ScaleData(object = tmp)
+  tmp<-RunPCA(object = tmp, verbose = FALSE, ndims.print = 0)
+  DimHeatmap(object = tmp, dims = 1:10, )
+  gg<-ElbowPlot(tmp, ndims = 10) + labs(title=as.character(i))
+  print(gg)
+}
+```
+
+```{r}
+FirstInMan.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:10, k.filter = 20)
+FirstInMan.combined <- IntegrateData(anchorset = FirstInMan.anchors, dims = 1:10)
+```
+
+```{r}
+DefaultAssay(object = FirstInMan.combined) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+FirstInMan.combined <- ScaleData(object = FirstInMan.combined, verbose = FALSE)
+FirstInMan.combined <- RunPCA(object = FirstInMan.combined, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+#FirstInMan.combined <- RunUMAP(object = FirstInMan.combined, reduction = "pca", dims = 1:20)
+FirstInMan.combined <- RunTSNE(object = FirstInMan.combined, reduction = "pca", dims = 1:20)
+FirstInMan.combined <- FindNeighbors(object = FirstInMan.combined, reduction = "pca", dims = 1:20)
+FirstInMan.combined <- FindClusters(FirstInMan.combined, resolution = 0.5)
+```
+
+
+```{r }
+condition<-c()
+for (ident in FirstInMan.combined@meta.data$orig.ident) {
+  tmp<-unlist(strsplit(ident,split = "_"))
+  currentBarcode<-paste0(tmp[2:length(tmp)],collapse = "_")
+  condition<-c(condition,currentBarcode)
+}
+names(condition)<-names(FirstInMan.combined@active.ident)
+FirstInMan.combined$condition<-condition
+```
+
+```{r,fig.height=8, fig.width=15 }
+DimPlot(object = FirstInMan.combined, label=T, pt.size = 0.1, do.return=TRUE)
+DimPlot(object = FirstInMan.combined, group.by = "orig.ident", pt.size = 0.001, split.by = "condition")
+DimPlot(object = FirstInMan.combined, group.by = "seurat_clusters", pt.size = 0.001, split.by = "condition")
+DimPlot(object = FirstInMan.combined, group.by = "condition", pt.size = 0.001)
+FeaturePlot(FirstInMan.combined, features = c("IL7R","CD14","MS4A1","CD8A","NKG7","FCGR3A","FCER1A","PPBP","CD4"), min.cutoff = 0, label = TRUE, label.size = 4)
+FeaturePlot(FirstInMan.combined, features = c("IL7R","CD4"), min.cutoff = 0, label = TRUE, label.size = 4)
+
+```
+```{r}
+
+```
+
+```{r}
+table(FirstInMan.combined$sample)
+table(FirstInMan.combined$orig.ident)
+table(FirstInMan.combined$condition)
+table(FirstInMan.combined$seurat_clusters)
+```
+
+
+
+
+
+
+#Find Cluster specific Genes
+```{r}
+Idents(FirstInMan.combined)<-"seurat_clusters" 
+FirstInMan.combined.markers<-FindAllMarkers(object = FirstInMan.combined, assay = "RNA", only.pos = TRUE)
+TopGenesPerCluster<- FirstInMan.combined.markers %>% group_by(cluster) %>% top_n(2, avg_logFC)
+```
+
+```{r}
+features<-unique(TopGenesPerCluster$gene)
+DotPlot(FirstInMan.combined, features = rev(features), group.by = "seurat_clusters", assay = "RNA", ) + theme(axis.text.x = element_text(angle = 90))
+
+#marker_genes = {'CD4 T cells':{'IL7R'},'CD14+ Monocytes':{'CD14',
+#                 'LYZ'}, 'B cells':{'MS4A1'}, 'CD8 T cells':{'CD8A'},
+#                 'NK cells':{'GNLY', 'NKG7'}, 'FCGR3A+ Monocytes':
+#                 {'FCGR3A', 'MS4A7'}, 'Dendritic Cells':{'FCER1A',
+#                 'CST3'}, 'Megakaryocytes':{'PPBP'}}
+
+
+marker_genes<-c("GNLY","NKG7","IL7R","CD8A","MS4A1","FCGR3A","MS4A7","LYZ","CD14","CST3","FCER1A","PPBP")
+DotPlot(FirstInMan.combined, features = rev(marker_genes), group.by = "seurat_clusters", assay = "RNA", ) + theme(axis.text.x = element_text(angle = 90))
+```
+
+#Rename Idents
+```{r}
+Heart.combined <- RenameIdents(Heart.combined, `0` = "Cardiomiocytes", `1` = "Fibroblasts", `2` = "ECs", 
+    `3` = "Dentritic Cells", `4` = "Fibroblasts", `5` = "ECs", `6` = "Pericytes", `7` = "Dentritic Cells", `8` = "Fibroblasts", `9` = "ECs", 
+    `10` = "Cardiomiocytes", `11` = "Dentritic Cells", `12` = "ECs", `13` = "Fibroblasts/ECs",`14` = "Cardiomiocytes", 
+    `15` = "Cardiomiocytes", `16` = "SWL", `17` = "Cardiomiocytes", 
+    `18` = "Pericytes/ECs", `19` = "Dentritic Cells", `20` = "Cardiomiocytes/Fibroblasts")
+
+
+#                     0             1           2           3           4                 5           6               7             8         9     
+#clusterNames<-c("NK cells","CD4 T cells","CD8 T cells","CD4 T cells","B cells","FCGR3A+ Monocytes","NK cells","CD4 T cells","CD14+ Monocytes","NK cells",
+            #         10           11               12            13            14
+#                "NK cells", "Plasma Cells","Dendritic Cells","CD4 T cells","CD4 T cells")
+#Idents(FirstInMan.combined)<-"seurat_clusters"
+#names(clusterNames) <- levels(FirstInMan.combined)
+#FirstInMan.combined <- RenameIdents(FirstInMan.combined, clusterNames)
+
+
+FirstInMan.combined <- RenameIdents(FirstInMan.combined,'0'="NK cells",'1'="CD4 T cells",'2'="CD8 T cells",'3'="CD4 T cells",
+                                                        '4'="B cells",'5'="FCGR3A+ Monocytes",'6'="NK cells",'7'="CD4 T cells",
+                                                        '8'="CD14+ Monocytes",'9'="NK cells",'10'="NK cells",'11'= "Plasma Cells",
+                                                        '12'="Dendritic Cells",'13'="CD4 T cells",'14'="CD4 T cells")
+FirstInMan.combined$celltypes<-Idents(FirstInMan.combined)
+
+```
+
+```{r}
+DimPlot(object = FirstInMan.combined, group.by = "celltypes", pt.size = 0.1, label = TRUE, label.size = 6)
+DimPlot(object = FirstInMan.combined, group.by = "celltypes",split.by = "condition", pt.size = 0.1, label = TRUE, label.size = 6)
+
+```
+
+
+#### Generate barplot of cell per cluster per condition
+```{r fig.height=5, fig.width=8, warning=FALSE}
+# Counting celltypes in timepoints
+library(stringr)
+library(tidyr)
+
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(Seurat)
+V<- FirstInMan.combined@meta.data
+condition.ordered<-str_sort(unique(FirstInMan.combined@meta.data$condition),numeric = TRUE)
+
+
+V$condition<-factor(V$condition,levels = condition.ordered)
+V$celltypes<-factor(V$celltypes)
+
+Summary.Celltypes <- V %>% count(condition,celltypes,.drop = FALSE) %>% group_by(condition) %>%
+  mutate(freq = n /sum(n)) %>% complete(celltypes,fill = list(n=0,freq=0))
+
+Summary.Celltypes$celltypes <- factor(Summary.Celltypes$celltypes)
+condition<-c()
+
+#svg(filename = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/CD31+/Barplot-CellsperClusterPerSample.svg",width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=condition, y= freq, fill= condition))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~celltypes, nrow = 2, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+#dev.off()
+```
+
+
+
+#### Generate barplot of cell per cluster per condition
+```{r fig.height=5, fig.width=8, warning=FALSE}
+# Counting celltypes in timepoints
+V<- FirstInMan.combined@meta.data
+tmp2<-FirstInMan.combined@meta.data$orig.ident
+tmp<-trimws(FirstInMan.combined@meta.data$orig.ident, which = "left", )
+orig.ident.ordered<-factor(str_sort(unique(trimws(FirstInMan.combined@meta.data$orig.ident)),numeric = TRUE))
+
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$celltypes<-factor(V$celltypes)
+
+Summary.Celltypes <- V %>% count(orig.ident, condition,celltypes,.drop = FALSE) %>% group_by(condition) %>%
+  mutate(freq = n /sum(n)) %>% complete(celltypes,fill = list(n=0,freq=0))
+
+
+tmp<-V %>% count(orig.ident, condition,celltypes,.drop = FALSE) 
+Summary.Celltypes$celltypes <- factor(Summary.Celltypes$celltypes)
+
+Summary.Celltypes$orig.ident<-factor(Summary.Celltypes$orig.ident,levels = orig.ident.ordered)
+#condition<-c()
+tmp<-Summary.Celltypes%>%arrange(condition)
+#svg(filename = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/CD31+/Barplot-CellsperClusterPerSample.svg",width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=condition, y= freq, fill= orig.ident))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~celltypes, nrow = 2, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+
+```
+
+
+# Find DEG after Treatment
+```{r}
+table(FirstInMan.combined$condition)
+Idents(FirstInMan.combined) <- "condition"
+DEG_D1Placebo_vs_D4_Placebo <- FindMarkers(object = FirstInMan.combined, ident.1 = "D1_predose_Placebo", ident.2 = "D4_Placebo", assay = "RNA", slot = "data", logfc.threshold="0.1", test.use = "bimod",)
+DEG_D1Predose_1.5_vs_D4_1.5 <- FindMarkers(object = FirstInMan.combined, ident.1 = "D1_predose_1.5", ident.2 = "D4_1.5", assay = "RNA", slot = "data", logfc.threshold="0.1", test.use = "bimod")
+
+DEG_D1Placebo_vs_D4_Placebo$Gene<-rownames(DEG_D1Placebo_vs_D4_Placebo)
+DEG_D1Predose_1.5_vs_D4_1.5$Gene<-rownames(DEG_D1Predose_1.5_vs_D4_1.5)
+
+set1<-DEG_D1Placebo_vs_D4_Placebo[DEG_D1Placebo_vs_D4_Placebo$p_val<0.05,]
+set2<-DEG_D1Predose_1.5_vs_D4_1.5[DEG_D1Predose_1.5_vs_D4_1.5$p_val<0.05,]
+write.csv2(set1, file = "/media/Helios_scStorage/Wesley/103773-001/cellranger/Seurat3_Analysis_David/DEG_D1Placebo_vs_D4_Placebo.csv")
+write.csv2(set2, file = "/media/Helios_scStorage/Wesley/103773-001/cellranger/Seurat3_Analysis_David/DEG_D1Predose_1.5_vs_D4_1.5.csv")
+
+
+```
+
+```{r}
+save.image("/media/Helios_scStorage/Wesley/103773-001/Workspace_12.11.19.R.RData")
+load("/media/Helios_scStorage/Wesley/103773-001/Workspace_12.11.19.R.RData")
+```
+
+
+# Check miR-92A targets
+```{r}
+mir92a.table = read.table("/media/Helios_scStorage/Wesley/103773-001/cellranger/Seurat3_Analysis_David/mir92a-targets.csv", sep = ",", header = T)
+union.targets.Placebo<-intersect(DEG_D1Placebo_vs_D4_Placebo$Gene,mir92a.table$Gene.Symbol)
+union.targets.Treatment<-intersect(DEG_D1Predose_1.5_vs_D4_1.5$Gene,mir92a.table$Gene.Symbol)
+
+head(mir92a.table$Gene.Symbol)
+
+VlnPlot(object = FirstInMan.combined, features = mir92a.table$Gene.Symbol[1:9])
+
+```
+
+
+
+```{r}
+DefaultAssay(FirstInMan.combined)<-"RNA"
+tmp<-ScaleData(FirstInMan.combined)
+VlnPlot(FirstInMan.combined, features = "CD14","PECAM1")
+```
+
+
+#regulation of top 50 mir92A targets
+```{r}
+mir92Targets<-intersect(mir92a.table[1:30,]$Gene.Symbol,rownames(FirstInMan.combined@assays$RNA))
+
+patients <- c("Pat127_D1_predose_1.5","Pat127_D4_1.5",
+              "Pat129_D1_predose_1.5","Pat129_D4_1.5",
+              "Pat132_D1_predose_1.5","Pat132_D4_1.5",
+              "Pat137_D1_predose_1.5","Pat137_D4_1.5",
+              "Pat142_D1_predose_1.5","Pat142_D4_1.5",
+              "Pat128_D1_predose_Placebo","Pat128_D4_Placebo",
+              "Pat130_D1_predose_Placebo","Pat130_D4_Placebo")
+Idents(FirstInMan.combined) <- "orig.ident"
+
+for (celltype in levels(FirstInMan.combined$celltypes)) {
+  df<-data.frame(Gene=mir92Targets)
+  Idents(FirstInMan.combined) <- "celltypes"
+
+  tmpSeurat<-subset(FirstInMan.combined, idents = celltype)
+  Idents(FirstInMan.combined) <- "orig.ident"
+
+  avg<-AverageExpression(FirstInMan.combined, assays = "RNA", features = mir92Targets)
+  avg$RNA<-exp(avg$RNA)
+  df$Tre_127_FC<-avg$RNA$Pat127_D4_1.5/avg$RNA$Pat127_D1_predose_1.5
+  df$Tre_129_FC<-avg$RNA$Pat129_D4_1.5/avg$RNA$Pat129_D1_predose_1.5
+  df$Tre_132_FC<-avg$RNA$Pat132_D4_1.5/avg$RNA$Pat132_D1_predose_1.5
+  df$Tre_137_FC<-avg$RNA$Pat137_D4_1.5/avg$RNA$Pat137_D1_predose_1.5
+  df$Tre_142_FC<-avg$RNA$Pat142_D4_1.5/avg$RNA$Pat142_D1_predose_1.5
+  df$Pla_128_FC<-avg$RNA$Pat128_D4_Placebo/avg$RNA$Pat128_D1_predose_Placebo
+  df$Pla_130_FC<-avg$RNA$Pat130_D4_Placebo/avg$RNA$Pat130_D1_predose_Placebo
+  
+  df_melted<-melt(df)
+  gg <- ggplot(df_melted, aes(x=variable, y=value)) + 
+    geom_boxplot() + geom_jitter() + scale_y_continuous(limits = c(0,2)) + 
+    labs(title = celltype)
+  print(gg)
+  
+}
+tail(FirstInMan.combined@assays$RNA)
+#loop over celltypes
+
+#loop over patient
+VlnPlot(FirstInMan.combined,features = c("GLRA1"))
+
+```
+

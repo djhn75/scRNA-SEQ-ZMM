@@ -10,12 +10,11 @@ FilterDeadCells <- function(seuratObject){
   # We calculate the percentage of mitochondrial features here and store it in object metadata as `percent.mito`.
   # We use raw count data since this represents non-transformed and non-log-normalized counts
   # The % of UMI mapping to MT-features is a common scRNA-seq QC metric.
-  mito.features <- grep(pattern = "^MT-", x = rownames(x = seuratObject), value = TRUE)
-  percent.mito <- Matrix::colSums(x = GetAssayData(object = seuratObject, slot = 'counts')[mito.features, ]) / Matrix::colSums(x = GetAssayData(object = seuratObject, slot = 'counts'))
-  seuratObject[['percent.mito']] <- percent.mito
-  VlnPlot(object = seuratObject, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3)
+  sizeBefore<-length(seuratObject@meta.data$orig.ident)
+  seuratObject <- subset(x = seuratObject, subset = nFeature_RNA > 100 & nFeature_RNA < 2500 & percent.mito < 0.1)
   
-  seuratObject <- subset(x = seuratObject, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mito < 0.05)
+  diff<-  sizeBefore -length(seuratObject@meta.data$orig.ident)
+  cat("Filtered ",diff, "from" , sizeBefore, " cells\n")
   return(seuratObject)
 }
 
@@ -24,7 +23,7 @@ FilterDeadCells <- function(seuratObject){
 #' @param pathways A vector of pathways to the cellrancer count output folder (contains barcodes.tsv, genes.tsv, matrix.mtx)
 #' @param ids Vector of strings that are assigned to the concordant cells
 #' @return Merged seurat object
-Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performScaling = FALSE,performVariableGeneDetection=TRUE) {
+Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performScaling = FALSE,performVariableGeneDetection=TRUE, FilterCells=TRUE) {
   if (TenX) {
     Matrix <- Read10X(pathway)
   }  else{
@@ -34,12 +33,27 @@ Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performSc
   seuratObject$sample <- id
   tmp<-unlist(strsplit(id,split = "-"))
   seuratObject$condition <- paste0(tmp[1:length(tmp)-1],collapse = "-")
-  seuratObject <- subset(x = seuratObject, subset = nFeature_RNA > 500)
+  
+  mito.features <- grep(pattern = "^MT-", x = rownames(x = seuratObject), value = TRUE)
+  if (length(mito.features)<10) {
+    mito.features <- grep(pattern = "^mt-", x = rownames(x = seuratObject), value = TRUE)
+  }
+  if (length(mito.features)<10) {
+    stop("Error: Could not find MT genes")
+  }
+  
+  percent.mito <- Matrix::colSums(x = GetAssayData(object = seuratObject, slot = 'counts')[mito.features, ]) / Matrix::colSums(x = GetAssayData(object = seuratObject, slot = 'counts'))
+  seuratObject[['percent.mito']] <- percent.mito
+  VlnPlot(object = seuratObject, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3)
+  
+  if (FilterCells==TRUE) {
+    seuratObject<-FilterDeadCells(seuratObject = seuratObject)
+  }
   if (performNormalisation==TRUE) {
     seuratObject<-NormalizeData(object = seuratObject,verbose = FALSE)
   }
-  if(performVariableGeneDetection){
-    seuratObject<-FindVariableFeatures(object = seuratObject, do.plot = FALSE, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+  if(performVariableGeneDetection==TRUE){
+    seuratObject<-FindVariableFeatures(object = seuratObject, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
   }
   if (performScaling==TRUE) {
     seuratObject<-ScaleData(object = seuratObject)

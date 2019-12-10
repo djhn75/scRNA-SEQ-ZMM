@@ -85,7 +85,7 @@ combineSeuratObjects <- function(pathways,ids){
 
 
 
-library(scImpute)
+#library(scImpute)
 library(Seurat)
 #' Read 10X results and impute the dataset with scImpute
 #' @author David John

@@ -1,0 +1,342 @@
+---
+title: "R Notebook"
+author: "David John"
+output:
+html_document:
+df_print: paged
+---
+
+#1.) Import Data
+## 1.1) Import packages
+```{r message=FALSE}
+#load libraries
+library(dplyr)
+library(ggpubr)
+
+require(scales)
+
+library(Seurat)
+source("Import10X-HelperFunctions_SeuratV3.R")
+```
+---
+
+##Import Ref Genome and Gene Biotypes
+```{r}
+#only lncRNAs
+library(refGenome)
+setwd("/media/ATLAS_Genomes_Annotations/mouse/GRCm38");
+ens <- ensemblGenome()
+read.gtf(ens, "Mus_musculus.GRCm38.81.gtf")
+my_gene <- getGenePositions(ens);rownames(my_gene)<-my_gene$gene_id
+biotypes<-data.frame(geneName=my_gene$gene_name, biotype=my_gene$gene_biotype )
+```
+
+
+
+## 1.2) Load Data and assign condition
+```{r Import, message=FALSE}
+###############################################################
+### 1.)           Import and filter Data                   ####
+###############################################################
+setwd("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19")
+
+
+#Static Parameters
+Paths <- c("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Young1",
+                "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Young2",
+                "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Young3",
+                "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Old1",
+                "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Old2",
+                "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/HeartData/Old3")
+Samplenames <- c("Young1","Young2","Young3","Old1","Old2","Old3")
+```
+
+
+## 1.3) import and combine the raw cellranger counts with CCA
+```{r}
+SeuratObjectList <- list()
+for (i in 1:length(Paths)) {
+  SeuratObjectList[[i]]<-Importer(pathway = Paths[i],id = Samplenames[i], performNormalisation = TRUE, 
+                                  performVariableGeneDetection = TRUE, performScaling = FALSE, 
+                                  FilterCells = TRUE)
+}
+```
+
+```{r}
+for (i in 1:length(SeuratObjectList)) {
+  print(i)
+  tmp<-SeuratObjectList[[i]]
+  tmp<-ScaleData(object = tmp)
+  tmp<-RunPCA(object = tmp, verbose = FALSE, ndims.print = 0)
+  DimHeatmap(object = tmp, dims = 1:15, )
+  gg<-ElbowPlot(tmp, ndims = 10) + labs(title=as.character(i))
+  print(gg)
+}
+```
+
+
+```{r}
+Heart.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:10, k.filter = 150)
+Heart.combined <- IntegrateData(anchorset = Heart.anchors, dims = 1:10)
+```
+
+
+
+```{r}
+DefaultAssay(object = Heart.combined) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+Heart.combined <- ScaleData(object = Heart.combined, verbose = FALSE)
+Heart.combined <- RunPCA(object = Heart.combined, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+Heart.combined <- RunUMAP(object = Heart.combined, reduction = "pca", dims = 1:20)
+Heart.combined <- RunTSNE(object = Heart.combined, reduction = "pca", dims = 1:20)
+Heart.combined <- FindNeighbors(object = Heart.combined, reduction = "pca", dims = 1:20)
+Heart.combined <- FindClusters(Heart.combined, resolution = 0.5)
+```
+
+
+
+
+#add condition meta data
+```{r}
+condition<-c()
+for (ident in Heart.combined@meta.data$orig.ident) {
+  tmp<- substr(ident, 1, nchar(ident)-1)
+  condition<-c(condition,tmp)
+}
+names(condition)<-names(Heart.combined@active.ident)
+Heart.combined$condition<-condition
+```
+
+```{r}
+table(condition)
+table(Heart.combined$orig.ident)
+table(Heart.combined$condition)
+table(Heart.combined$sample)
+table(Heart.combined$seurat_clusters)
+
+
+```
+
+#plot TSNE's
+```{r}
+DimPlot(object = Heart.combined, label=T, pt.size = 0.1, do.return=TRUE, reduction = "umap")
+DimPlot(object = Heart.combined, label=T, pt.size = 0.1, do.return=TRUE, reduction = "tsne")
+
+DimPlot(object = Heart.combined, group.by = "orig.ident", pt.size = 0.001, split.by = "condition")
+DimPlot(object = Heart.combined, group.by = "seurat_clusters", pt.size = 0.001, split.by = "orig.ident")
+
+```
+
+```{r}
+DimHeatmap(Heart.combined, dims = 1:5, nfeatures = 50, balanced = TRUE, reduction = "pca", fast = TRUE)
+
+Heart.combined=BuildClusterTree(Heart.combined,reorder = TRUE)
+PlotClusterTree(object = Heart.combined)
+
+```
+
+Find markers
+```{r}
+Idents(Heart.combined)<-"seurat_clusters"
+Heart.combined.marker <- FindAllMarkers(Heart.combined, only.pos = TRUE, print.bar = T)
+Idents(Heart.combined)<-"condition"
+Heart.combined.marker.YoungvsOld<-FindMarkers(Heart.combined, ident.1 = "Young", ident.2 = "Old",assay = "RNA",test.use = "bimod" )
+Heart.combined.marker.YoungvsOld$Gene<-rownames(Heart.combined.marker.YoungvsOld)
+```
+
+
+```{r}
+DefaultAssay(object = Heart.combined) <- "RNA"
+Heart.combined <- ScaleData(object = Heart.combined, verbose = FALSE, assay = "RNA")
+
+Idents(Heart.combined)<-"seurat_clusters"
+top20<-Heart.combined.marker %>% group_by(cluster) %>% top_n(3, avg_logFC) %>% arrange(-cluster)
+top20$cluster<-factor(top20$cluster, levels = c(0:20))
+top20<-top20[order(as.numeric(top20$cluster)),]
+DoHeatmap(object = Heart.combined, features = top20$gene, disp.min = 0)
+```
+
+#Plot Marker Genes
+```{r}
+Genes <- c("Pdgfra", "Col4a1", "Adamts5", "Lamb1", "Dpep1", "Ms4a4d", "Medag", "Col3a1", "Mmp2", "Dpt", "Dcn", "Dkk3", "Comp", "Tbx20",
+            "Meox1", "Prg4", "Frzb", "Tnc", "Col1a1", "Lox", "Postn", "Acta2","Lyz2", "Lgals3", "Mrc1", "Cd68", "Cd14", "CD16", "Msr1", "Cd209a",
+            "Cd83", "Napsa", "Cd74", "Ly6g", "Cxcr2", "Prox1", "Tie1", "Lyve1", "Cldn5", "Vwf", "Eng", "Emcn", "Fabp4", "Pecam1", "Cdh5",
+            "Ccl5", "Nkg7", "Ptprc", "Klrc1", "Ctla4", "Klre1", "Cd3g", "Trdc", "Icos", "Cd3e", "Lat", "Lef1", "Tcf7", "Iglc1", "Pax5",
+            "Iglc2", "Iglc3", "Cd79a", "Cd79b", "Cd19", "Plp1", "Kcna1", "Kcna2", "Cd59a", "Rgs5", "Tagln", "Myh11", "Vtn", "Notch3",
+            "Pdgfrb", "Cspg4", "Des", "Pln", "Nkain4", "Krt8", "Krt19", "Krt18")
+
+
+
+```
+
+```{r fig.height=7, fig.width=17}
+DotPlot(Heart.combined, assay = "RNA", features = Genes) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+DotPlot(Heart.combined, assay = "RNA", features = rev(unique(top20$gene))) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+Rename Cluster Names
+```{r}
+Heart.combined <- RenameIdents(Heart.combined, `0` = "Cardiomiocytes", `1` = "Fibroblasts", `2` = "ECs", 
+    `3` = "Dentritic Cells", `4` = "Fibroblasts", `5` = "ECs", `6` = "Pericytes", `7` = "Dentritic Cells", `8` = "Fibroblasts", `9` = "ECs", 
+    `10` = "Cardiomiocytes", `11` = "Dentritic Cells", `12` = "ECs", `13` = "Fibroblasts/ECs",`14` = "Cardiomiocytes", 
+    `15` = "Cardiomiocytes", `16` = "SWL", `17` = "Cardiomiocytes", 
+    `18` = "Pericytes/ECs", `19` = "Dentritic Cells", `20` = "Cardiomiocytes/Fibroblasts")
+```
+
+
+```{r}
+Idents(Heart.combined)<-"seurat_clusters"
+DimPlot(Heart.combined, label = TRUE, reduction = "tsne")
+DimPlot(Heart.combined, label = TRUE, reduction = "umap")
+```
+
+```{r fig.height=7, fig.width=17}
+DotPlot(Heart.combined, assay = "RNA", features = Genes) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+DotPlot(Heart.combined, assay = "RNA", features = rev(unique(top20$gene))) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+DefaultAssay(object = Heart.combined)<-"RNA"
+FeaturePlot(Heart.combined, features = c("Pdgfrb", "Cspg4"), min.cutoff = 0, max.cutoff = 3, reduction = "umap", cols = c("gray","red"))
+FeaturePlot(Heart.combined, features = c("Pdgfrb", "Cspg4"), min.cutoff = 0, max.cutoff = 3, reduction = "tsne")
+
+```
+
+#Subset Perycites
+```{r}
+table(Idents(Heart.combined))
+Heart.Pericytes <- subset(Heart.combined, idents = "Pericytes")
+Idents(Heart.Pericytes) <- "condition" 
+
+DimPlot(Heart.Pericytes, pt.size = 2, reduction = "tsne")
+
+FeaturePlot(Heart.Pericytes, features = c("Cspg4","Notch3","Pdgfrb"), reduction = "tsne", min.cutoff = 0, max.cutoff = 3)
+DefaultAssay(Heart.Pericytes)<-"RNA"
+VlnPlot(Heart.Pericytes, features = c("Notch3","Pdgfrb"), assay = "RNA")
+VlnPlot(Heart.Pericytes, features = c("Notch3","Pdgfrb","Rgs5"), assay = "RNA")
+
+
+```
+#Recluster Pericytes
+```{r}
+Heart.Pericytes<- FindVariableFeatures(object = Heart.Pericytes, assay = "RNA")
+
+# t-SNE and Clustering
+Heart.Pericytes <- RunUMAP(object = Heart.Pericytes, reduction = "pca", dims = 1:10)
+Heart.Pericytes <- RunTSNE(object = Heart.Pericytes, reduction = "pca", dims = 1:10)
+Heart.Pericytes <- FindNeighbors(object = Heart.Pericytes, reduction = "pca", dims = 1:10)
+Heart.Pericytes <- FindClusters(Heart.Pericytes, resolution = 0.5)
+```
+
+```{r}
+DimPlot(Heart.Pericytes, group.by = "seurat_clusters")
+DimPlot(Heart.Pericytes, group.by = "condition")
+```
+
+```{r}
+Idents(Heart.Pericytes)<-"condition"
+
+Idents(Heart.Pericytes)<-"orig.ident"
+DefaultAssay(Heart.Pericytes)<-"RNA"
+Heart.Pericytes.markers.YoungvsOld<-FindMarkers(object = Heart.Pericytes, only.pos = TRUE, ident.1 = "Young", ident.2 = "Old", test.use = "wilcox")
+x<-FindMarkers(object = Heart.Pericytes, ident.1 = "Old", ident.2 = "Young", test.use = "DESeq2", min.pct = 0.1, logfc.threshold = 0.1 )
+x$Gene<-rownames(x)
+Heart.Pericytes.Bulk<-AverageExpression(object = Heart.Pericytes, assays = "RNA")
+names(x$RNA)
+Heart.Pericytes.Bulk<-as_data_frame(Heart.Pericytes.Bulk$RNA)
+Heart.Pericytes.Bulk$Gene<-rownames(Heart.Pericytes)
+Heart.Pericytes.markers.YoungvsOld$Gene<-rownames(Heart.Pericytes.markers.YoungvsOld)
+```
+
+
+```{r}
+x3<-FindAllMarkers(Heart.Pericytes, slot = "scale.data")
+ScaleD
+
+```
+
+
+
+
+```{r, fig.height=8}
+VlnPlot(Heart.Pericytes, features = c("Grm7","Nkain2","Pdgfrb","Notch3","Rgs5","Col8a1","Nkain2","Zswim5"), assay = "RNA", slot = "data", )
+VlnPlot(Heart.combined, features = c("Grm7","Nkain2","Pdgfrb","Notch3","Rgs5","Col8a1","Nkain2","Zswim5"), assay = "RNA", slot = "data", )
+
+
+VlnPlot(Heart.Pericytes, features = c("Pdgfrb","Notch3","Rgs5", "Nkain2"), slot = "scale.data", group.by = "orig.ident" )
+VlnPlot(Heart.combined, features = c("Pdgfrb","Notch3","Rgs5"), assay = "RNA", slot = "data", group.by = "orig.ident")
+```
+
+Select Cells that express PDGFRB
+```{r}
+Heart.combined_Pdgfrb_Pos <- subset(x = Heart.combined, subset = Pdgfrb > 0.9)
+
+
+VlnPlot(Heart.combined_Pdgfrb_Pos, features = "Pdgfrb")
+VlnPlot(Heart.combined, features = "Pdgfrb")
+
+Idents(Heart.combined_Pdgfrb_Pos)<-"condition"
+Heart.combined_Pdgfrb_Posmarkers_OldYoung<- FindAllMarkers(Heart.combined_Pdgfrb_Pos, only.pos = TRUE)
+VlnPlot(Heart.combined_Pdgfrb_Pos, features = c("Pdgfrb","Notch3","Rgs5"), group.by = "orig.ident")
+
+```
+
+
+```{r}
+cat("Number of Cells Young Old in Pdgfr positive cells")
+table(Idents(Heart.combined_Pdgfrb_Pos))
+cat("Number of Cells Young Old in Perycite Cluster")
+table(Heart.Pericytes$orig.ident)
+
+
+
+#Heart.Fibroblasts <- subset(Heart.combined, idents = "Fibroblasts")
+Idents(Heart.Fibroblasts) <- "condition" 
+cat("Number of Cells Young Old in Fibroblast Cluster")
+table(Idents(Heart.Fibroblasts))
+#VlnPlot(Heart.Fibroblasts,features = "Pdgfrb")
+cat("Number of Cells Young Old in Fibroblast Cluster whichg are Pdgfrb")
+
+#Heart.Fibroblasts_Pdgfrb_Pos <- subset(x = Heart.Fibroblasts, subset = Pdgfrb > 0.9)
+table(Idents(Heart.Fibroblasts_Pdgfrb_Pos))
+
+
+```
+
+
+#select uniquely enriched genes of pericytes
+```{r}
+Heart.combined.marker.sig<-Heart.combined.marker[Heart.combined.marker$p_val_adj<0.05,]
+Heart.Pericytes.markers.sig<-Heart.Pericytes.markers[Heart.Pericytes.markers$p_val_adj<0.05,]
+
+unique()
+```
+
+
+
+```{r}
+save.image("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/Workspace.RData")
+load("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/Workspace.RData")
+```
+
+```{r}
+table(Heart.combined@meta.data$seurat_clusters)
+```
+
+```{r}
+library(ggplot2)
+#Heart.combined.ECs<-subset(Heart.combined, idents = "ECs")
+VlnPlot(Heart.combined.ECs,features = c("Jag2","Egfl7"), group.by = "condition") + labs(title="ECs")
+
+
+#library(ggplot2)
+#Heart.combined.Fibroblasts<-subset(Heart.combined, idents = "Fibroblasts")
+VlnPlot(Heart.combined.Fibroblasts,features = c("Nr4a1"), group.by = "condition") + labs(title="Fibroblasts")
+
+
+```
+
