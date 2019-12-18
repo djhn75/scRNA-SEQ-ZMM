@@ -296,7 +296,7 @@ VlnPlot(FirstInMan.combined, features = "CD14","PECAM1")
 
 #regulation of top 50 mir92A targets
 ```{r}
-mir92Targets<-intersect(mir92a.table[1:30,]$Gene.Symbol,rownames(FirstInMan.combined@assays$RNA))
+mir92Targets<-intersect(mir92a.table[0:500,]$Gene.Symbol,rownames(FirstInMan.combined@assays$RNA))
 
 patients <- c("Pat127_D1_predose_1.5","Pat127_D4_1.5",
               "Pat129_D1_predose_1.5","Pat129_D4_1.5",
@@ -306,29 +306,36 @@ patients <- c("Pat127_D1_predose_1.5","Pat127_D4_1.5",
               "Pat128_D1_predose_Placebo","Pat128_D4_Placebo",
               "Pat130_D1_predose_Placebo","Pat130_D4_Placebo")
 Idents(FirstInMan.combined) <- "orig.ident"
+Idents(FirstInMan.combined) <- "celltypes"
 
-for (celltype in levels(FirstInMan.combined$celltypes)) {
+celltypes<-levels(FirstInMan.combined$celltypes)
+celltype<-celltypes[1]
+for (celltype in celltypes) {
   df<-data.frame(Gene=mir92Targets)
-  Idents(FirstInMan.combined) <- "celltypes"
 
   tmpSeurat<-subset(FirstInMan.combined, idents = celltype)
-  Idents(FirstInMan.combined) <- "orig.ident"
+  Idents(tmpSeurat) <- "orig.ident"
 
-  avg<-AverageExpression(FirstInMan.combined, assays = "RNA", features = mir92Targets)
+  avg<-AverageExpression(tmpSeurat, assays = "RNA", features = mir92Targets, verbose = FALSE)
   avg$RNA<-exp(avg$RNA)
-  df$Tre_127_FC<-avg$RNA$Pat127_D4_1.5/avg$RNA$Pat127_D1_predose_1.5
-  df$Tre_129_FC<-avg$RNA$Pat129_D4_1.5/avg$RNA$Pat129_D1_predose_1.5
-  df$Tre_132_FC<-avg$RNA$Pat132_D4_1.5/avg$RNA$Pat132_D1_predose_1.5
-  df$Tre_137_FC<-avg$RNA$Pat137_D4_1.5/avg$RNA$Pat137_D1_predose_1.5
-  df$Tre_142_FC<-avg$RNA$Pat142_D4_1.5/avg$RNA$Pat142_D1_predose_1.5
-  df$Pla_128_FC<-avg$RNA$Pat128_D4_Placebo/avg$RNA$Pat128_D1_predose_Placebo
-  df$Pla_130_FC<-avg$RNA$Pat130_D4_Placebo/avg$RNA$Pat130_D1_predose_Placebo
-  
-  df_melted<-melt(df)
-  gg <- ggplot(df_melted, aes(x=variable, y=value)) + 
-    geom_boxplot() + geom_jitter() + scale_y_continuous(limits = c(0,2)) + 
-    labs(title = celltype)
-  print(gg)
+  if (length(avg$RNA)==length(unique(FirstInMan.combined$orig.ident))) {
+      df$Tre_127_FC<-avg$RNA$Pat127_D4_1.5/avg$RNA$Pat127_D1_predose_1.5
+    df$Tre_129_FC<-avg$RNA$Pat129_D4_1.5/avg$RNA$Pat129_D1_predose_1.5
+    df$Tre_132_FC<-avg$RNA$Pat132_D4_1.5/avg$RNA$Pat132_D1_predose_1.5
+    df$Tre_137_FC<-avg$RNA$Pat137_D4_1.5/avg$RNA$Pat137_D1_predose_1.5
+    df$Tre_142_FC<-avg$RNA$Pat142_D4_1.5/avg$RNA$Pat142_D1_predose_1.5
+    df$Pla_128_FC<-avg$RNA$Pat128_D4_Placebo/avg$RNA$Pat128_D1_predose_Placebo
+    df$Pla_130_FC<-avg$RNA$Pat130_D4_Placebo/avg$RNA$Pat130_D1_predose_Placebo
+    
+    df_melted<-melt(df)
+    gg <- ggplot(df_melted, aes(x=variable, y=value)) + 
+      geom_boxplot() + scale_y_continuous(limits = c(0,2)) + 
+      labs(title = celltype)
+    print(gg)
+  }
+  else  {
+    cat("Skipping ",celltype, "because not enough cells")
+  }
   
 }
 tail(FirstInMan.combined@assays$RNA)
@@ -336,6 +343,70 @@ tail(FirstInMan.combined@assays$RNA)
 
 #loop over patient
 VlnPlot(FirstInMan.combined,features = c("GLRA1"))
+
+```
+
+
+#ext6rect upregulated mir92Atargets
+```{r}
+mir92Targets<-intersect(mir92a.table[0:500,]$Gene.Symbol,rownames(FirstInMan.combined@assays$RNA))
+
+patients <- c("Pat127_D1_predose_1.5","Pat127_D4_1.5",
+              "Pat129_D1_predose_1.5","Pat129_D4_1.5",
+              "Pat132_D1_predose_1.5","Pat132_D4_1.5",
+              "Pat137_D1_predose_1.5","Pat137_D4_1.5",
+              "Pat142_D1_predose_1.5","Pat142_D4_1.5",
+              "Pat128_D1_predose_Placebo","Pat128_D4_Placebo",
+              "Pat130_D1_predose_Placebo","Pat130_D4_Placebo")
+Idents(FirstInMan.combined) <- "orig.ident"
+Idents(FirstInMan.combined) <- "celltypes"
+
+
+celltypes<-levels(FirstInMan.combined$celltypes)
+celltype<-celltypes[1]
+for (celltype in celltypes) {
+  df<-data.frame(Gene=mir92Targets)
+
+  tmpSeurat<-subset(FirstInMan.combined, idents = celltype)
+  Idents(tmpSeurat) <- "orig.ident"
+
+  avg<-AverageExpression(tmpSeurat, assays = "RNA", features = mir92Targets, verbose = FALSE)
+  avg$RNA<-exp(avg$RNA)
+  if (length(avg$RNA)==length(unique(FirstInMan.combined$orig.ident))) {
+      df$Tre_127_FC<-avg$RNA$Pat127_D4_1.5/avg$RNA$Pat127_D1_predose_1.5
+    df$Tre_129_FC<-avg$RNA$Pat129_D4_1.5/avg$RNA$Pat129_D1_predose_1.5
+    df$Tre_132_FC<-avg$RNA$Pat132_D4_1.5/avg$RNA$Pat132_D1_predose_1.5
+    df$Tre_137_FC<-avg$RNA$Pat137_D4_1.5/avg$RNA$Pat137_D1_predose_1.5
+    df$Tre_142_FC<-avg$RNA$Pat142_D4_1.5/avg$RNA$Pat142_D1_predose_1.5
+    df$Pla_128_FC<-avg$RNA$Pat128_D4_Placebo/avg$RNA$Pat128_D1_predose_Placebo
+    df$Pla_130_FC<-avg$RNA$Pat130_D4_Placebo/avg$RNA$Pat130_D1_predose_Placebo
+    write.csv(x = df, file = paste0("/media/Helios_scStorage/Wesley/103773-001/cellranger/Seurat3_Analysis_David/CelltypeSpecificMir92ATargets/",celltype,".csv"))
+    
+  }
+  else  {
+    cat("Skipping ",celltype, "because not enough cells")
+  }
+  
+}
+#tail(FirstInMan.combined@assays$RNA)
+#loop over celltypes
+
+#loop over patient
+#VlnPlot(FirstInMan.combined,features = c("GLRA1"))
+
+```
+
+Generate Seurat object for Patient 129 and 130
+```{r}
+
+Idents(FirstInMan.combined) <- "orig.ident"
+table(Idents(FirstInMan.combined))
+Pat129<-subset(FirstInMan.combined, idents = c("Pat129_D1_predose_1.5","Pat129_D4_1.5"))
+FeaturePlot(Pat129, features = c("CD14", "CD3E"), min.cutoff = 0, max.cutoff = 1, split.by = "ident")
+VlnPlot(Pat129, features = c("CD14", "CD3E"))
+
+
+Idents(object = FirstInMan.combined)
 
 ```
 
