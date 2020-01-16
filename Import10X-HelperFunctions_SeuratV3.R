@@ -1,20 +1,27 @@
 library(Seurat)
 
+
 #' 
 #' @author David John
 #' @param seuratObject 
 #' @return filtered seurat object
-FilterDeadCells <- function(seuratObject){
+FilterDeadCells <- function(seuratObject, minFeatures=200, maxFeatures=3000, maxMito=0.2){
   # The number of features and UMIs (nFeature_RNA and nCount_RNA) are automatically calculated for every object by Seurat.
   # For non-UMI data, nCount_RNA represents the sum of the non-normalized values within a cell
   # We calculate the percentage of mitochondrial features here and store it in object metadata as `percent.mito`.
   # We use raw count data since this represents non-transformed and non-log-normalized counts
   # The % of UMI mapping to MT-features is a common scRNA-seq QC metric.
   sizeBefore<-length(seuratObject@meta.data$orig.ident)
-  seuratObject <- subset(x = seuratObject, subset = nFeature_RNA > 100 & nFeature_RNA < 2500 & percent.mito < 0.1)
+  
+  #For some unknown reasons these variables need to be global for the subset function, otherwise there is an eval() unknown variable error 
+  minFeatures<<-minFeatures
+  maxFeatures<<-maxFeatures
+  maxMito<<-maxMito
+  seuratObject <- subset(x = seuratObject, subset = nFeature_RNA > minFeatures & nFeature_RNA < maxFeatures & percent.mito < maxMito)
   
   diff<-  sizeBefore -length(seuratObject@meta.data$orig.ident)
-  cat("Filtered ",diff, "from" , sizeBefore, " cells\n")
+  cat("Filtered ",diff, "from" , sizeBefore, " cells\n", "(minFeatures=",minFeatures, "; maxFeatures=", maxFeatures, "; maxMito=" ,maxMito, ")" )
+  rm(minFeatures,maxFeatures,maxMito)
   return(seuratObject)
 }
 
@@ -44,7 +51,12 @@ Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performSc
   
   percent.mito <- Matrix::colSums(x = GetAssayData(object = seuratObject, slot = 'counts')[mito.features, ]) / Matrix::colSums(x = GetAssayData(object = seuratObject, slot = 'counts'))
   seuratObject[['percent.mito']] <- percent.mito
-  VlnPlot(object = seuratObject, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3)
+  
+  #write QC to file
+  svg(paste0(pathway,"QC_preFiltered.svg"))
+  gg<-VlnPlot(object = seuratObject, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3, pt.size = 0,)
+  print(gg)
+  dev.off()
   
   if (FilterCells==TRUE) {
     seuratObject<-FilterDeadCells(seuratObject = seuratObject)
@@ -59,7 +71,7 @@ Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performSc
     seuratObject<-ScaleData(object = seuratObject)
   }
   cat("Imported ", length(seuratObject@meta.data$orig.ident), " cells from ", pathway, "with ID ", id, "\n")
-  return(seuratObject)
+  return(list(seuratObject, gg))
 }
 
 

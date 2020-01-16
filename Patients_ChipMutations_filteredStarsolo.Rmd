@@ -1,0 +1,414 @@
+---
+title: "Patients with Chip mutations (Seurat3)"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+  
+# 1.) Import packages
+```{r message=FALSE}
+#load libraries
+library(dplyr)
+library(ggpubr)
+library(reshape2)
+require(scales)
+library(ggplot2)
+
+ 
+source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
+sink(file = "/media/Helios_scStorage/Wesley/11275/starSolo/ChipMutations_filteredByStar.rmd.log", append = TRUE, split = TRUE)
+```
+
+
+## 1.2) Define static parameters
+```{r}
+#Static Parameters 
+Paths <- c(
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF1Solo.out/Gene/filtered/",
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF2Solo.out/Gene/filtered/",
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF3Solo.out/Gene/filtered/",
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF4Solo.out/Gene/filtered/",
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF5Solo.out/Gene/filtered/",
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF6Solo.out/Gene/filtered/",
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF7Solo.out/Gene/filtered/",
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF8Solo.out/Gene/filtered/",
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF9Solo.out/Gene/filtered/",
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF10Solo.out/Gene/filtered/",
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF11Solo.out/Gene/filtered/"
+)
+
+
+Samplenames <- c("CHIP1",
+"Control1",
+"Control2",
+"Control3",
+"CHIP2",
+"Control4",
+"CHIP3",
+"Moderate",
+"Control5",
+"CHIP4",
+"CHIP5")
+```
+
+
+```{r}
+#Static Parameters 
+Paths <- c(
+    "/media/Helios_scStorage/Wesley/11275/starSolo/HF1Solo.out/Gene/filtered/"
+)
+
+
+Samplenames <- c("CHIP1")
+```
+
+
+
+## 1.3) import and combine the raw cellranger counts with CCA
+```{r}
+SeuratObjectList <- list()
+for (i in 1:length(Paths)) {
+  importerList<-Importer(pathway = Paths[i],id = Samplenames[i], performNormalisation = TRUE, performVariableGeneDetection = TRUE, FilterCells = TRUE)
+  SeuratObjectList[[i]]<-importerList[1]
+  gg<-importerList[[2]]
+  print(gg)
+}
+```
+
+#Filter cells with percent.mito < 0,2 & nFeature_RNA > 300 & top 5% with highest nFeature_RNA
+```{r}
+for (i in 1:lengt(SeuratObjectList)) {
+  tmpSeuratObject<-SeuratObjectList[[i]]
+  tmpSeuratObject<- subset(x = tmpSeuratObject, subset = nFeature_RNA > 300 & percent.mito < 0.2)
+}
+```
+
+
+
+
+```{r}
+ChipPatients_filteredStar.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:10, k.filter = 20)
+ChipPatients_filteredStar.combined <- IntegrateData(anchorset = ChipPatients_filteredStar.anchors, dims = 1:10)
+
+
+DefaultAssay(object = ChipPatients_filteredStar.combined) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+ChipPatients_filteredStar.combined <- ScaleData(object = ChipPatients_filteredStar.combined, verbose = FALSE)
+ChipPatients_filteredStar.combined <- RunPCA(object = ChipPatients_filteredStar.combined, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+#FirstInMan.combined <- RunUMAP(object = FirstInMan.combined, reduction = "pca", dims = 1:20)
+ChipPatients_filteredStar.combined <- RunTSNE(object = ChipPatients_filteredStar.combined, reduction = "pca", dims = 1:20)
+ChipPatients_filteredStar.combined <- FindNeighbors(object = ChipPatients_filteredStar.combined, reduction = "pca", dims = 1:20)
+ChipPatients_filteredStar.combined <- FindClusters(ChipPatients_filteredStar.combined, resolution = 0.5)
+save.image("/media/Helios_scStorage/Wesley/11275/starSolo/Workspace_13.01.20.RData")
+```
+
+
+
+```{r }
+condition<-c()
+for (ident in ChipPatients_filteredStar.combined@meta.data$orig.ident) {
+  #tmp<-unlist(strsplit(ident,split = "_"))
+  #currentBarcode<-paste0(tmp[2:length(tmp)],collapse = "_")
+  currentBarcode <- substr(ident, 1, nchar(ident)-1)
+  condition<-c(condition,currentBarcode)
+}
+names(condition)<-names(ChipPatients_filteredStar.combined@active.ident)
+ChipPatients_filteredStar.combined$condition<-condition
+```
+
+#Quality Checks
+```{r}
+# Define an order of cluster identities
+my_levels <- c("CHIP1","CHIP2","CHIP3","CHIP4","CHIP5","Control1","Control2","Control3","Control4","Control5","Moderate")
+
+# Relevel object@ident
+Idents(ChipPatients_filteredStar.combined) <- factor(x = Idents(ChipPatients_filteredStar.combined), levels = my_levels)
+Idents(ChipPatients.combined) <- factor(x = Idents(ChipPatients.combined), levels = my_levels)
+
+ChipPatients_filteredStar.combined$seurat_clusters
+
+VlnPlot(ChipPatients.combined, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3,pt.size = 0)
+VlnPlot(ChipPatients_filteredStar.combined, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3,pt.size = 0)
+
+Idents(ChipPatients_filteredStar.combined) <- "seurat_clusters"
+Idents(ChipPatients.combined) <-  "seurat_clusters"
+VlnPlot(ChipPatients.combined, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3,pt.size = 0,)
+VlnPlot(ChipPatients_filteredStar.combined, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3,pt.size = 0)
+
+table(ChipPatients.combined$orig.ident)
+Features <- combined@meta.data$nFeature_RNA
+Count <- combined@meta.data$nCount_RNA
+Percent.mito <- combined@meta.data$percent.mito
+
+MT <- data.frame(sample = combined@meta.data$sample, 
+                 Features = combined@meta.data$nFeature_RNA,
+                 Count = combined@meta.data$nCount_RNA,
+                 Percent.mito = combined@meta.data$percent.mito)
+
+library(reshape2)
+MT.melt <- melt(MT)
+
+ggplot(MT.melt, aes(x=sample, y= value, fill= sample))+
+  geom_jitter(height = 0, alpha = 0.8, color = "grey40", width = .3)+
+  geom_violin(scale = "width")+
+  facet_wrap(~variable, scales = "free_y")+
+  theme_pubr()+
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+  scale_fill_manual(values = c("beige", "dark red", "blue", "dark green","yellow","orange","grey"))
+
+```
+
+
+```{r,fig.height=8, fig.width=15 }
+DimPlot(object = ChipPatients_filteredStar.combined, label=T, pt.size = 0.1, do.return=TRUE)
+DimPlot(object = ChipPatients_filteredStar.combined, group.by = "orig.ident", pt.size = 0.001, split.by = "condition")
+DimPlot(object = ChipPatients_filteredStar.combined, group.by = "seurat_clusters", pt.size = 0.001, split.by = "condition")
+DimPlot(object = ChipPatients_filteredStar.combined, group.by = "condition", pt.size = 0.001)
+FeaturePlot(ChipPatients_filteredStar.combined, features = c("IL7R","CD14","MS4A1","CD8A","NKG7","FCGR3A","FCER1A","PPBP","CD4"), min.cutoff = 0, label = TRUE, label.size = 4)
+FeaturePlot(ChipPatients_filteredStar.combined, features = c("IL7R","CD4"), min.cutoff = 0, label = TRUE, label.size = 4)
+
+```
+
+
+#Find Cluster specific Genes
+```{r}
+Idents(ChipPatients_filteredStar.combined)<-"seurat_clusters" 
+ChipPatients_filteredStar.markers<-FindAllMarkers(object = ChipPatients_filteredStar.combined, assay = "RNA", only.pos = TRUE)
+TopGenesPerCluster<- ChipPatients_filteredStar.markers %>% group_by(cluster) %>% top_n(4, avg_logFC)
+```
+
+```{r}
+features<-unique(TopGenesPerCluster$gene)
+DotPlot(ChipPatients_filteredStar.combined, features = rev(features), group.by = "seurat_clusters", assay = "RNA", ) + theme(axis.text.x = element_text(angle = 90))
+
+#marker_genes = {'CD4 T cells':{'IL7R'},'CD14+ Monocytes':{'CD14',
+#                 'LYZ'}, 'B cells':{'MS4A1'}, 'CD8 T cells':{'CD8A'},
+#                 'NK cells':{'GNLY', 'NKG7'}, 'FCGR3A+ Monocytes':
+#                 {'FCGR3A', 'MS4A7'}, 'Dendritic Cells':{'FCER1A',
+#                 'CST3'}, 'Megakaryocytes':{'PPBP'}}
+
+
+marker_genes<-c("GNLY","NKG7","IL7R","CD8A","MS4A1","FCGR3A","MS4A7","LYZ","CD14","CST3","FCER1A","PPBP","CD4", "CD79A")
+marker_genes<-c( "CD79A","CD79B", "NCAM1")
+DotPlot(ChipPatients_filteredStar.combined, features = rev(marker_genes), group.by = "seurat_clusters", assay = "RNA", ) + theme(axis.text.x = element_text(angle = 90))
+```
+
+
+#Rename Idents
+```{r}
+
+#new ones
+ChipPatients_filteredStar.combined <- RenameIdents(ChipPatients_filteredStar.combined,'0'="CD14+ Monocytes",'1'="CD14+ Monocytes",'2'="NK cells",'3'="CD8 T cells",
+                                                        '4'="T cells",'5'="T cells",'6'="CD14+ Monocytes",'7'="FCGR3A+ Monocytes",
+                                                        '8'="CD8 T cells",'9'="B cells",'10'="Megakaryocytes",'11'= "CD14+ Monocytes(^Neat1)",
+                                                        '12'="^MT-CO1",'13'="CD14+ Monocytes",'14'="Dendritic Cells", '15'="CD14+ Monocytes",
+                                                        '16'="X1(^STMN1,^TUBA1B)",'17'="X2(^TCF4)",'18'="B cells")
+
+
+ChipPatients_filteredStar.combined$celltypes<-Idents(ChipPatients_filteredStar.combined)
+
+```
+
+```{r}
+DimPlot(object = ChipPatients_filteredStar.combined, group.by = "celltypes", pt.size = 0.1, label = TRUE, label.size = 6)
+DimPlot(object = ChipPatients_filteredStar.combined, group.by = "celltypes",split.by = "condition", pt.size = 0.1, label = TRUE, label.size = 6)
+
+```
+
+
+#### Generate barplot of cell per cluster per condition
+```{r fig.height=5, fig.width=8, warning=FALSE}
+# Counting celltypes in timepoints
+library(stringr)
+library(tidyr)
+
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(Seurat)
+V<- ChipPatients_filteredStar.combined@meta.data
+condition.ordered<-str_sort(unique(ChipPatients_filteredStar.combined@meta.data$condition),numeric = TRUE)
+
+
+V$condition<-factor(V$condition,levels = condition.ordered)
+V$celltypes<-factor(V$celltypes)
+
+Summary.Celltypes <- V %>% count(condition,celltypes,.drop = FALSE) %>% group_by(condition) %>%
+  mutate(freq = n /sum(n)) %>% complete(celltypes,fill = list(n=0,freq=0))
+
+Summary.Celltypes$celltypes <- factor(Summary.Celltypes$celltypes)
+condition<-c()
+
+#svg(filename = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/CD31+/Barplot-CellsperClusterPerSample.svg",width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=condition, y= freq, fill= condition))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~celltypes, nrow = 2, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+#dev.off()
+```
+
+
+
+#### Generate barplot of cell per cluster per condition
+```{r fig.height=5, fig.width=8, warning=FALSE}
+# Counting celltypes in timepoints
+V<- ChipPatients_filteredStar.combined@meta.data
+tmp2<-ChipPatients_filteredStar.combined@meta.data$orig.ident
+tmp<-trimws(ChipPatients_filteredStar.combined@meta.data$orig.ident, which = "left", )
+orig.ident.ordered<-factor(str_sort(unique(trimws(ChipPatients_filteredStar.combined@meta.data$orig.ident)),numeric = TRUE))
+
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$celltypes<-factor(V$celltypes)
+
+Summary.Celltypes <- V %>% count(orig.ident, condition,celltypes,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(celltypes,fill = list(n=0,freq=0))
+
+
+tmp<-V %>% count(orig.ident, condition,celltypes,.drop = FALSE) 
+Summary.Celltypes$celltypes <- factor(Summary.Celltypes$celltypes)
+
+Summary.Celltypes$orig.ident<-factor(Summary.Celltypes$orig.ident,levels = orig.ident.ordered)
+#condition<-c()
+tmp<-Summary.Celltypes%>%arrange(condition)
+#svg(filename = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/CD31+/Barplot-CellsperClusterPerSample.svg",width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=condition, y= freq, fill= orig.ident))+
+  geom_col(position = position_dodge(width=0.9), color = "black")+
+  facet_wrap(~celltypes, nrow = 2, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+
+```
+
+
+#subset monocytes
+```{r}
+monocytes<- subset(ChipPatients_filteredStar.combined, idents = "CD14+ Monocytes")
+
+monocytes <- RunPCA(object = monocytes, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+#FirstInMan.combined <- RunUMAP(object = FirstInMan.combined, reduction = "pca", dims = 1:20)
+monocytes <- RunTSNE(object = monocytes, reduction = "pca", dims = 1:20)
+monocytes <- FindNeighbors(object = monocytes, reduction = "pca", dims = 1:10)
+monocytes <- FindClusters(monocytes, resolution = 0.5)
+
+DimPlot(monocytes, split.by = "orig.ident", ncol = 5, pt.size = 0.5)
+DimPlot(monocytes, split.by = "condition", ncol = 5, pt.size = 0.5)
+DimPlot(monocytes, split.by = "condition", ncol = 5, pt.size = 0.5, group.by = "orig.ident")
+
+VlnPlot(monocytes, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3,pt.size = 0.01)
+
+
+#### Generate barplot of cell per cluster per condition
+# Counting celltypes in timepoints
+V<- monocytes@meta.data
+tmp2<-monocytes@meta.data$orig.ident
+tmp<-trimws(monocytes@meta.data$orig.ident, which = "left", )
+orig.ident.ordered<-factor(str_sort(unique(trimws(monocytes@meta.data$orig.ident)),numeric = TRUE))
+
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$seurat_clusters<-factor(V$seurat_clusters)
+
+Summary.Celltypes <- V %>% count(orig.ident, condition,seurat_clusters,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(seurat_clusters,fill = list(n=0,freq=0))
+
+
+Summary.Celltypes$seurat_clusters <- factor(Summary.Celltypes$seurat_clusters)
+
+Summary.Celltypes$orig.ident<-factor(Summary.Celltypes$orig.ident,levels = orig.ident.ordered)
+#condition<-c()
+tmp<-Summary.Celltypes%>%arrange(condition)
+#svg(filename = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/CD31+/Barplot-CellsperClusterPerSample.svg",width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=condition, y= freq, fill= orig.ident))+
+  geom_col(position = position_dodge(width=0.9), color = "black")+
+  facet_wrap(~seurat_clusters, nrow = 2, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+```
+
+```{r}
+monocytes.markers<-FindAllMarkers(monocytes, assay = "RNA", )
+
+write.csv2(x = monocytes.markers, "/media/Helios_scStorage/Wesley/11275/starSolo/MonocyteMarkers.csv")
+VlnPlot(monocytes,features = c("NKG7","GZMA","PRF1","KLRD1","MALAT1", "ETS1"), pt.size = 0, assay = "RNA")
+```
+
+#recluster monocyte cluster 5
+```{r}
+monocytes.5<- subset(monocytes, idents = "5")
+
+monocytes.5 <- RunPCA(object = monocytes.5, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+#FirstInMan.combined <- RunUMAP(object = FirstInMan.combined, reduction = "pca", dims = 1:20)
+monocytes.5 <- RunTSNE(object = monocytes.5, reduction = "pca", dims = 1:5)
+monocytes.5 <- FindNeighbors(object = monocytes.5, reduction = "umap")
+monocytes.5 <- FindClusters(monocytes.5, resolution = 0.5)
+
+monocytes.5 <- RunUMAP(object = monocytes.5, reduction = "pca", dims = 1:5)
+monocytes.5 <- FindNeighbors(object = monocytes.5, reduction = "umap", dims = 1:5)
+monocytes.5 <- FindClusters(monocytes.5, resolution = 0.5)
+
+DimPlot(monocytes.5, split.by = "orig.ident", ncol = 5, pt.size = 0.5, reduction = "umap")
+
+
+DimPlot(monocytes.5, split.by = "condition", ncol = 5, pt.size = 0.5, reduction = "umap")
+DimPlot(monocytes.5, split.by = "condition", ncol = 5, pt.size = 0.5, group.by = "orig.ident")
+
+
+```
+
+
+
+
+#subset T-cells
+```{r}
+tcells<- subset(ChipPatients_filteredStar.combined, idents = "T cells")
+
+tcells <- RunPCA(object = tcells, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+#FirstInMan.combined <- RunUMAP(object = FirstInMan.combined, reduction = "pca", dims = 1:20)
+tcells <- RunTSNE(object = tcells, reduction = "pca", dims = 1:20)
+tcells <- FindNeighbors(object = tcells, reduction = "pca", dims = 1:10)
+tcells <- FindClusters(tcells, resolution = 0.5)
+
+DimPlot(tcells, split.by = "orig.ident", ncol = 5, pt.size = 0.5)
+DimPlot(tcells, split.by = "condition", ncol = 5, pt.size = 0.5)
+DimPlot(tcells, split.by = "condition", ncol = 5, pt.size = 0.5, group.by = "orig.ident")
+
+VlnPlot(tcells, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3,pt.size = 0.01)
+
+
+#### Generate barplot of cell per cluster per condition
+# Counting celltypes in timepoints
+V<- tcells@meta.data
+tmp2<-tcells@meta.data$orig.ident
+tmp<-trimws(tcells@meta.data$orig.ident, which = "left", )
+orig.ident.ordered<-factor(str_sort(unique(trimws(tcells@meta.data$orig.ident)),numeric = TRUE))
+
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$seurat_clusters<-factor(V$seurat_clusters)
+
+Summary.Celltypes <- V %>% count(orig.ident, condition,seurat_clusters,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(seurat_clusters,fill = list(n=0,freq=0))
+
+
+Summary.Celltypes$seurat_clusters <- factor(Summary.Celltypes$seurat_clusters)
+
+Summary.Celltypes$orig.ident<-factor(Summary.Celltypes$orig.ident,levels = orig.ident.ordered)
+#condition<-c()
+tmp<-Summary.Celltypes%>%arrange(condition)
+#svg(filename = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/CD31+/Barplot-CellsperClusterPerSample.svg",width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=condition, y= freq, fill= orig.ident))+
+  geom_col(position = position_dodge(width=0.9), color = "black")+
+  facet_wrap(~seurat_clusters, nrow = 2, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+
+```
