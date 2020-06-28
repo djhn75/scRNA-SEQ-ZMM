@@ -211,3 +211,24 @@ FeatureHeatmap <- function(object, features, group.by=NULL, cols=c("skyblue","re
     theme(axis.text = element_blank(), axis.ticks = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.position = "top", strip.text = element_text(face = "italic"))
   
 }
+
+
+PlotClusterPrecentageBarplot <- function(x, faceWrapeBy, fileName=NULL, width=15, height=8){
+  df<-data.frame(x1=x,x2=faceWrapeBy)
+  
+  df <- df %>% count(x1,x2,.drop = FALSE) %>% group_by(x1) %>%
+    mutate(freq = n /sum(n)) %>% complete(x2,fill = list(n=0,freq=0))
+  if (!is.null(fileName)) {
+    svg(filename = fileName,width = width, height = height)
+    
+  }
+  ggplot(df, aes(x=x1, y= freq, fill= x1))+
+    geom_col(width = 0.9, color = "black")+
+    facet_wrap(~x2, nrow = 2, scales = "free")+
+    scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+    theme(panel.background = element_blank(), axis.title.x = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+  
+  
+  
+}
