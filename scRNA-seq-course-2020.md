@@ -1,7 +1,7 @@
 ---
 title: "scRNA-SEQ-course-2019"
 author: "David John & Wesley Abplanalp"
-date: "12 6 2019"
+date: "07 05 2020"
 ---
 
 
@@ -73,18 +73,18 @@ During this course we will analyse 3 datasets. Two are punlished healthy PBMC's 
 
 ## 2.1.) Load the Datasets
 ##### TODO:
-- [ ] Download the datasets, save the folder `scRNA-SEQ_Coursematerial_2019` to your PC:
+- [ ] Download the datasets, save the folder `scRNA-SEQ_Coursematerial_2020` to your PC:
 <https://drive.google.com/open?id=1hY46UrN5hzuHkRC23rOYwARU2R7jaVPi>
 
 
 ## 2.2) Load the RScript
-- [ ] Download the Rscript (<https://github.com/djhn75/scRNA-SEQ-ZMM/blob/master/scRNA-seq-course-2019.Rmd>) 
+- [ ] Download the Rscript (<https://github.com/djhn75/scRNA-SEQ-ZMM/blob/master/scRNA-seq-course-2020.Rmd>) 
 - [ ] Open the file in Rstudio and continue at step 3
 
 
 
 # 3.) Run the R-script: 
-  <https://github.com/djhn75/scRNA-SEQ-ZMM/blob/master/scRNA-seq-course-2019.Rmd>
+  <https://github.com/djhn75/scRNA-SEQ-ZMM/blob/master/scRNA-seq-course-2020.Rmd>
 
 
 # 4.) Student Tasks
