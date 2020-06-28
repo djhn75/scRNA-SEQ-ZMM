@@ -142,7 +142,7 @@ Find markers
 Idents(Heart.combined)<-"seurat_clusters"
 Heart.combined.marker <- FindAllMarkers(Heart.combined, only.pos = TRUE, print.bar = T)
 Idents(Heart.combined)<-"condition"
-Heart.combined.marker.YoungvsOld<-FindMarkers(Heart.combined, ident.1 = "Young", ident.2 = "Old",assay = "RNA",test.use = "bimod" )
+Heart.combined.marker.YoungvsOld<-FindMarkers(Heart.combined, ident.1 = "Young", ident.2 = "Old")
 Heart.combined.marker.YoungvsOld$Gene<-rownames(Heart.combined.marker.YoungvsOld)
 ```
 
@@ -179,8 +179,9 @@ DotPlot(Heart.combined, assay = "RNA", features = rev(unique(top20$gene))) + the
 
 Rename Cluster Names
 ```{r}
+Idents(Heart.combined)<-"seurat_clusters"
 Heart.combined <- RenameIdents(Heart.combined, `0` = "Cardiomiocytes", `1` = "Fibroblasts", `2` = "ECs", 
-    `3` = "Dentritic Cells", `4` = "Fibroblasts", `5` = "ECs", `6` = "Pericytes", `7` = "Dentritic Cells", `8` = "Fibroblasts", `9` = "ECs", 
+    `3` = "Dentritic Cells", `4` = "Fibroblasts", `5` = "ECs", `6` = "Pericytes", `7` = "Dentritic Cells", `8` = "Epicardial", `9` = "Lymphatic ECs", 
     `10` = "Cardiomiocytes", `11` = "Dentritic Cells", `12` = "ECs", `13` = "Fibroblasts/ECs",`14` = "Cardiomiocytes", 
     `15` = "Cardiomiocytes", `16` = "SWL", `17` = "Cardiomiocytes", 
     `18` = "Pericytes/ECs", `19` = "Dentritic Cells", `20` = "Cardiomiocytes/Fibroblasts")
@@ -254,6 +255,36 @@ Heart.Pericytes.markers.YoungvsOld$Gene<-rownames(Heart.Pericytes.markers.Youngv
 
 
 ```{r}
+
+Heart.combined$celltype<-Idents(Heart.combined)
+EC<-subset(Heart.combined, idents = "ECs"); Idents(EC)<-"orig.ident"
+EC.Bulk<-AverageExpression(object = EC, assays = "RNA")
+EC.Bulk<-as_data_frame(EC.Bulk$RNA)
+EC.Bulk<-data.frame(Gene=rownames(EC@assays$RNA),EC.Bulk)
+write.csv2(EC.Bulk, file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/ECs.bulk.csv", row.names = FALSE)
+
+FB<-subset(Heart.combined, idents = "Fibroblasts"); Idents(FB)<-"orig.ident"
+FB.Bulk<-AverageExpression(object = FB, assays = "RNA")
+FB.Bulk<-as_data_frame(FB.Bulk$RNA)
+FB.Bulk<-data.frame(Gene=rownames(FB@assays$RNA),FB.Bulk)
+write.csv2(FB.Bulk, file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/FB.Bulk.csv", row.names = FALSE)
+
+CM<-subset(Heart.combined, idents = "Cardiomiocytes"); Idents(CM)<-"orig.ident"
+CM.Bulk<-AverageExpression(object = CM, assays = "RNA")
+CM.Bulk<-as_data_frame(CM.Bulk$RNA)
+CM.Bulk<-data.frame(Gene=rownames(CM@assays$RNA),CM.Bulk)
+write.csv2(CM.Bulk, file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/CM.Bulk.csv", row.names = FALSE)
+
+DC<-subset(Heart.combined, idents = "Dentritic Cells"); Idents(DC)<-"orig.ident"
+DC.Bulk<-AverageExpression(object = DC, assays = "RNA")
+DC.Bulk<-as_data_frame(DC.Bulk$RNA)
+DC.Bulk<-data.frame(Gene=rownames(DC@assays$RNA),DC.Bulk)
+write.csv2(DC.Bulk, file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/DC.Bulk.csv", row.names = FALSE)
+```
+
+
+
+```{r}
 x3<-FindAllMarkers(Heart.Pericytes, slot = "scale.data")
 ScaleD
 
@@ -270,6 +301,27 @@ VlnPlot(Heart.combined, features = c("Grm7","Nkain2","Pdgfrb","Notch3","Rgs5","C
 VlnPlot(Heart.Pericytes, features = c("Pdgfrb","Notch3","Rgs5", "Nkain2"), slot = "scale.data", group.by = "orig.ident" )
 VlnPlot(Heart.combined, features = c("Pdgfrb","Notch3","Rgs5"), assay = "RNA", slot = "data", group.by = "orig.ident")
 ```
+
+```{r}
+table(Heart.combined@meta.data$celltype)
+Epicardial<-subset(Heart.combined, ident="Epicardial")
+VlnPlot(Epicardial, features = c("Sema3a","Rtn4","Wdr17"), slot = "data", group.by = "orig.ident" )
+VlnPlot(Epicardial, features = c("Sema3a","Rtn4","Wdr17"), slot = "data", group.by = "condition" )
+
+FeaturePlot(Epicardial, features = c("Sema3a","Rtn4","Wdr17"), slot = "data", min.cutoff = 0, max.cutoff = 1, split.by = "condition")
+Idents(Epicardial)<-"condition"
+table(Epicardial@active.ident)
+Epicardial_DEG_Young_Old<-FindMarkers(Epicardial, ident.1 = "Young", ident.2 = "Old")
+
+epicardialuniqueGenes<-setdiff(rownames(Epicardial_DEG_Young_Old),rownames(Heart.combined.marker.YoungvsOld))
+df<-Epicardial_DEG_Young_Old[epicardialuniqueGenes,]
+
+write.csv2(df, "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/EpicardialSpecific-DEGs_YoungOld.csv", row.names = TRUE)
+write.csv2(Heart.combined.marker.YoungvsOld, "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/Heart.combined.marker.YoungvsOld.csv", row.names = TRUE)
+
+```
+
+
 
 Select Cells that express PDGFRB
 ```{r}
@@ -321,7 +373,7 @@ unique()
 ```{r}
 save.image("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/Workspace.RData")
 load("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/Workspace.RData")
-```
+      ```
 
 ```{r}
 table(Heart.combined@meta.data$seurat_clusters)
@@ -338,5 +390,34 @@ VlnPlot(Heart.combined.ECs,features = c("Jag2","Egfl7"), group.by = "condition")
 VlnPlot(Heart.combined.Fibroblasts,features = c("Nr4a1"), group.by = "condition") + labs(title="Fibroblasts")
 
 
+```
+
+import to monocle3
+```{r}
+library(monocle3)
+
+data <- as(as.matrix(Heart.combined@assays$RNA@data), 'sparseMatrix')
+
+pd <- new('AnnotatedDataFrame', data = Heart.combined@meta.data)
+
+fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
+fd <- new('AnnotatedDataFrame', data = fData)
+
+#Construct monocle cds
+#Heart.combined.monocle <- new_cell_data_set(expression_data = data, cell_metadata = pd, gene_metadata = fd)
+
+Heart.combined.monocle <- new_cell_data_set(expression_data = Heart.combined@assays$RNA@data, cell_metadata = Heart.combined@meta.data, gene_metadata = fData)
+
+Heart.combined.monocle <- preprocess_cds(Heart.combined.monocle, num_dim = 50)
+Heart.combined.monocle <- align_cds(Heart.combined.monocle, alignment_group = "orig.ident")
+
+
+Heart.combined.monocle <- reduce_dimension(Heart.combined.monocle)
+Heart.combined.monocle <- cluster_cells(Heart.combined.monocle, reduction_method = "Aligned")
+Heart.combined.monocle <- learn_graph(Heart.combined.monocle, use_partition = FALSE)
+plot_cells(Heart.combined.monocle, label_groups_by_cluster=FALSE,  color_cells_by = "cluster", label_cell_groups = TRUE, group_label_size = 8)
+plot_cells(Heart.combined.monocle, label_groups_by_cluster=FALSE,  color_cells_by = "partition", label_cell_groups = TRUE, group_label_size = 8)
+plot_cells(Heart.combined.monocle, color_cells_by = "partition", label_groups_by_cluster=FALSE, label_leaves=FALSE,label_branch_points=FALSE)
+plot_cells(Heart.combined.monocle, label_groups_by_cluster=FALSE,  color_cells_by = "celltype", label_cell_groups = TRUE, group_label_size = 8)
 ```
 

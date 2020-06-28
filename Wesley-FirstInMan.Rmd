@@ -13,7 +13,8 @@ library(ggpubr)
 library(reshape2)
 require(scales)
 library(ggplot2)
-
+library(Seurat)
+library(pheatmap)
  
 source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
 sink(file = "/media/Helios_scStorage/Wesley/103773-001/FirstInMan.rmd.log", append = TRUE, split = TRUE)
@@ -275,7 +276,105 @@ load("/media/Helios_scStorage/Wesley/103773-001/Workspace_12.11.19.R.RData")
 
 # Check miR-92A targets
 ```{r}
-mir92a.table = read.table("/media/Helios_scStorage/Wesley/103773-001/cellranger/Seurat3_Analysis_David/mir92a-targets.csv", sep = ",", header = T)
+hsa_miR_92a_1_5p = read.csv2("/media/Helios_scStorage/Wesley/103773-001/cellranger/Seurat3_Analysis_David/hsa-miR-92a-1-5p.csv", sep = ",", header = T)
+hsa_miR_92a_2_5p = read.csv2("/media/Helios_scStorage/Wesley/103773-001/cellranger/Seurat3_Analysis_David/hsa-miR-92a-2-5p.csv", sep = ",", header = T)
+hsa_miR_92a_3p = read.csv2("/media/Helios_scStorage/Wesley/103773-001/cellranger/Seurat3_Analysis_David/hsa-miR-92a-3p.csv", sep = ",", header = T)
+
+
+fet<-c(as.character(hsa_miR_92a_1_5p$Gene.Symbol[0:30]))
+levels(FirstInMan.combined)
+levels(FirstInMan.combined)<-c("Pat128_D1_predose_Placebo","Pat130_D1_predose_Placebo",
+                                "Pat128_D4_Placebo","Pat130_D4_Placebo",
+                                "Pat127_D1_predose_1.5","Pat129_D1_predose_1.5","Pat132_D1_predose_1.5","Pat142_D1_predose_1.5","Pat137_D1_predose_1.5",
+                                "Pat127_D4_1.5","Pat129_D4_1.5", "Pat132_D4_1.5", "Pat142_D4_1.5","Pat137_D4_1.5")
+Idents(FirstInMan.combined)<-"orig.ident"
+fet<-c(as.character(hsa_miR_92a_1_5p$Gene.Symbol))
+
+########################################################################################################
+#i all patients studied accept 132 and 142
+FirstInMan.combined_i<-subset(FirstInMan.combined, idents = c("Pat128_D1_predose_Placebo","Pat130_D1_predose_Placebo",
+                                "Pat128_D4_Placebo","Pat130_D4_Placebo",
+                                "Pat127_D1_predose_1.5","Pat129_D1_predose_1.5","Pat137_D1_predose_1.5",
+                                "Pat127_D4_1.5","Pat129_D4_1.5","Pat137_D4_1.5") )
+
+Idents(FirstInMan.combined_i)<-"orig.ident"
+levels(FirstInMan.combined_i)<-c("Pat128_D1_predose_Placebo","Pat130_D1_predose_Placebo",
+                                "Pat128_D4_Placebo","Pat130_D4_Placebo",
+                                "Pat127_D1_predose_1.5","Pat129_D1_predose_1.5","Pat137_D1_predose_1.5",
+                                "Pat127_D4_1.5","Pat129_D4_1.5","Pat137_D4_1.5")
+
+
+table(FirstInMan.combined_i$orig.ident)
+DoHeatmap(FirstInMan.combined_i, features = hsa_miR_92a_3p$Gene.Symbol[1:100], assay = "RNA", slot = 'data', disp.min = 1  , disp.max = 3, size = 2, ) + NoLegend()
+
+DoHeatmap(FirstInMan.combined, features = fet, assay = "RNA", slot = 'data')
+
+
+#NK Cells
+Idents(FirstInMan.combined_i)<-"celltypes"
+FirstInMan.combined_i_nkCells<-subset(FirstInMan.combined_i, idents = c("NK cells") )
+Idents(FirstInMan.combined_i_nkCells)<-"orig.ident"
+levels(FirstInMan.combined_i_nkCells)<-c("Pat128_D1_predose_Placebo","Pat130_D1_predose_Placebo",
+                                "Pat128_D4_Placebo","Pat130_D4_Placebo",
+                                "Pat127_D1_predose_1.5","Pat129_D1_predose_1.5","Pat137_D1_predose_1.5",
+                                "Pat127_D4_1.5","Pat129_D4_1.5","Pat137_D4_1.5")
+DoHeatmap(FirstInMan.combined_i_nkCells, features = hsa_miR_92a_3p$Gene.Symbol[1:100], assay = "RNA", slot = 'data', disp.min = 1  , disp.max = 3, size = 2, ) + NoLegend()
+
+#CD8
+Idents(FirstInMan.combined_i)<-"celltypes"
+FirstInMan.combined_i_cd8<-subset(FirstInMan.combined_i, idents = c("CD8 T cells") )
+Idents(FirstInMan.combined_i_cd8)<-"orig.ident"
+levels(FirstInMan.combined_i_cd8)<-c("Pat128_D1_predose_Placebo","Pat130_D1_predose_Placebo",
+                                "Pat128_D4_Placebo","Pat130_D4_Placebo",
+                                "Pat127_D1_predose_1.5","Pat129_D1_predose_1.5","Pat137_D1_predose_1.5",
+                                "Pat127_D4_1.5","Pat129_D4_1.5","Pat137_D4_1.5")
+DoHeatmap(FirstInMan.combined_i_cd8, features = hsa_miR_92a_3p$Gene.Symbol[1:100], assay = "RNA", slot = 'data', disp.min = 1  , disp.max = 3, size = 2, ) + NoLegend()
+
+#CD4
+Idents(FirstInMan.combined_i)<-"celltypes"
+FirstInMan.combined_i_cd4<-subset(FirstInMan.combined_i, idents = c("CD4 T cells") )
+Idents(FirstInMan.combined_i_cd4)<-"orig.ident"
+levels(FirstInMan.combined_i_cd4)<-c("Pat128_D1_predose_Placebo","Pat130_D1_predose_Placebo",
+                                "Pat128_D4_Placebo","Pat130_D4_Placebo",
+                                "Pat127_D1_predose_1.5","Pat129_D1_predose_1.5","Pat137_D1_predose_1.5",
+                                "Pat127_D4_1.5","Pat129_D4_1.5","Pat137_D4_1.5")
+DoHeatmap(FirstInMan.combined_i_cd4, features = hsa_miR_92a_3p$Gene.Symbol[1:100], assay = "RNA", slot = 'data', disp.min = 1  , disp.max = 3, size = 2, ) + NoLegend()
+
+#averaged
+FirstInMan.combined_i_cd4_averaged<-AverageExpression(object = FirstInMan.combined_i_cd4)
+tmp<-intersect(hsa_miR_92a_3p$Gene.Symbol, rownames(FirstInMan.combined_i_cd4_averaged[[1]]))
+library(pheatmap)
+pheatmap(FirstInMan.combined_i_cd4_averaged[[1]][tmp[1:100],], cluster_rows = FALSE)
+########################################################################################################
+#ii only two patients studied
+FirstInMan.combined_ii<-subset(FirstInMan.combined, idents = c("Pat130_D1_predose_Placebo","Pat130_D4_Placebo",
+                                                              "Pat129_D1_predose_1.5","Pat129_D4_1.5") )
+Idents(FirstInMan.combined_ii)<-"orig.ident"
+levels(FirstInMan.combined_ii)<-c("Pat130_D1_predose_Placebo","Pat130_D4_Placebo",
+                                  "Pat129_D1_predose_1.5","Pat129_D4_1.5")
+
+
+table(FirstInMan.combined_i$orig.ident)
+DoHeatmap(FirstInMan.combined_ii, features = hsa_miR_92a_3p$Gene.Symbol[1:100], assay = "RNA", slot = 'data', disp.min = 1  , disp.max = 3, size = 2, ) + NoLegend()
+
+
+FirstInMan.combined_ii_averaged<-AverageExpression(object = FirstInMan.combined_ii)
+#remove all 0 values
+FirstInMan.combined_ii_averaged_RNA<-FirstInMan.combined_ii_averaged[[1]][rowSums(abs(FirstInMan.combined_ii_averaged[[1]])) > 2,]
+tmp<-intersect(hsa_miR_92a_3p$Gene.Symbol, rownames(FirstInMan.combined_ii_averaged_RNA))
+
+pheatmap(FirstInMan.combined_ii_averaged_RNA[tmp,], cluster_cols = FALSE)
+
+
+table(FirstInMan.combined$orig.ident)
+DoHeatmap(FirstInMan.combined, features = fet, group.by = "orig.ident", assay = "RNA", slot = 'data')
+
+DoHeatmap(FirstInMan.combined, features = fet, assay = "RNA", slot = 'data')
+```
+
+
+```{r}
+
 union.targets.Placebo<-intersect(DEG_D1Placebo_vs_D4_Placebo$Gene,mir92a.table$Gene.Symbol)
 union.targets.Treatment<-intersect(DEG_D1Predose_1.5_vs_D4_1.5$Gene,mir92a.table$Gene.Symbol)
 
