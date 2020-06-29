@@ -661,7 +661,7 @@ save.image("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/
 
 #Save Seurat Object
 saveRDS(HFpEF_Mouse_Nuclei.emptyDrop.combined, file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/AllCells/SeuratObject_AllCells.25.06.20.Rds")
-load("/media/Helios_scStorage/Wesley/103773-001/Workspace_12.11.19.R.RData")
+load("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/Workspace_25.06.20.RData")
 ```
 
 ```{r}
@@ -759,9 +759,13 @@ table(HFpEF_Mouse_Nuclei.emptyDrop.combined$condition)
 table(HFpEF_Mouse_Nuclei.emptyDrop.combined$orig.ident)
 
 Idents(HFpEF_Mouse_Nuclei.emptyDrop.combined)<-"condition"
+<<<<<<< HEAD
 Idents(HFpEF_Mouse_Nuclei.emptyDrop.combined)<-"orig.ident"
 
 DEG_CTRL_HFpEF_indiv <- FindMarkers(object = HFpEF_Mouse_Nuclei.emptyDrop.combined, ident.1 = "CTRL", ident.2 = "HFpEF", assay = "RNA", slot = "data", logfc.threshold="0.1", test.use = "DESeq2")
+=======
+DEG_CTRL_HFpEF_indiv <- FindMarkers(object = HFpEF_Mouse_Nuclei.emptyDrop.combined, ident.1 = "CTRL", ident.2 = "HFpEF", test.use = "DESeq2")
+>>>>>>> 92a353cc7790ffac50b7112389077a23037eba6c
 
 DEG_CTRL_HFpEF_indiv <- FindMarkers(object = HFpEF_Mouse_Nuclei.emptyDrop.combined, ident.1 = c("CTRL-1","CTRL-2","CTRL-3"), ident.2 = c("HFpEF-1","HFpEF-2","HFpEF-6"), assay = "RNA", slot = "data", logfc.threshold="0.1", test.use = "DESeq2")
 
