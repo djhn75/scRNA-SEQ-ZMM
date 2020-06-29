@@ -40,3 +40,4 @@ for (tmp in colnames(StudyTable)){
 }
 
 saveRDS(CircResBothCohortsMonocytes.final,"/media/ATLAS_NGS_storage/Wesley/CircRes2019/CircResBothCohortsMonocytes.final.metaData.Rds")
+CircResBothCohortsMonocytes.final<-readRDS("/media/ATLAS_NGS_storage/Wesley/CircRes2019/CircResBothCohortsMonocytes.final.metaData.Rds")

@@ -7,337 +7,27 @@ editor_options:
   
 # Import packages
 ```{r message=FALSE}
+
+
+
 #load libraries
 library(dplyr)
-library(ggpubr)
+#library(ggpubr)
 library(reshape2)
 require(scales)
 library(ggplot2)
-
+library(MAST)
+library(sctransform)
+library(Seurat)
 
 source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
 sink(file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/Badder-Sebastian_HFpEF_model_mouse.RMD.log", append = TRUE, split = TRUE)
 ```
 
-# 1.) Star default Filter
+
+
+# 1.) Star empty Drops Filter
 ## 1.2) Define static parameters
-```{r}
-#Static Parameters 
-Paths <- c("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/104081-001-001/Solo.out/Gene/filtered/",
-"/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/104081-001-002/Solo.out/Gene/filtered/",
-"/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/104081-001-003/Solo.out/Gene/filtered/",
-"/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/104081-001-004/Solo.out/Gene/filtered/",
-"/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/104081-001-005/Solo.out/Gene/filtered/",
-"/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/104081-001-006/Solo.out/Gene/filtered/"
-)
-
-
-Samplenames <- c("HFpEF-1","HFpEF-2","CTRL-1",
-                 "CTRL-2","CTRL-3","HFpEF-3")
-```
-
-
-## 1.3) import and combine the raw cellranger counts with CCA
-```{r}
-SeuratObjectList <- list()
-for (i in 1:length(Paths)) {
-  SeuratObjectList[[i]]<-Importer(pathway = Paths[i],id = Samplenames[i], performNormalisation = TRUE, performVariableGeneDetection = TRUE, FilterCells = TRUE)
-}
-```
-
-```{r}
-tmpList<-list()
-for (i in 1:length(SeuratObjectList)) {
-  tmpid<-levels(Idents(SeuratObjectList[[i]][[1]]))
-  #print(tmpid)
-  print(paste(Samplenames[i],length(Idents(SeuratObjectList[[1]][[1]])), "Cell"))
-  
-  tmp<-SeuratObjectList[[i]][[1]]
-  tmpList[[i]]<-tmp
-  gg <- VlnPlot(object = tmp, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3, group.by = "orig.ident") + ggtitle(tmpid)
-  print(gg)
-  tmp<-ScaleData(object = tmp)
-  tmp<-RunPCA(object = tmp, verbose = FALSE, ndims.print = 0)
-  DimHeatmap(object = tmp, dims = 1:10, )
-  gg<-ElbowPlot(tmp, ndims = 10) + labs(title=as.character(i))
-  print(gg)
-}
-SeuratObjectList<-tmpList
-```
-
-## 1.4.) Integrate Data
-```{r}
-HFpEF_Mouse_Nuclei.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:10, k.filter = 20)
-HFpEF_Mouse_Nuclei.combined <- IntegrateData(anchorset = HFpEF_Mouse_Nuclei.anchors, dims = 1:10)
-```
-## 1.5.) Cluster data
-```{r}
-DefaultAssay(object = HFpEF_Mouse_Nuclei.combined) <- "integrated"
-
-# Run the standard workflow for visualization and clustering
-HFpEF_Mouse_Nuclei.combined <- ScaleData(object = HFpEF_Mouse_Nuclei.combined, verbose = FALSE)
-HFpEF_Mouse_Nuclei.combined <- RunPCA(object = HFpEF_Mouse_Nuclei.combined, npcs = 30, verbose = FALSE)
-# t-SNE and Clustering
-#FirstInMan.combined <- RunUMAP(object = FirstInMan.combined, reduction = "pca", dims = 1:20)
-HFpEF_Mouse_Nuclei.combined <- RunTSNE(object = HFpEF_Mouse_Nuclei.combined, reduction = "pca", dims = 1:20)
-HFpEF_Mouse_Nuclei.combined <- FindNeighbors(object = HFpEF_Mouse_Nuclei.combined, reduction = "pca", dims = 1:20)
-HFpEF_Mouse_Nuclei.combined <- FindClusters(HFpEF_Mouse_Nuclei.combined, resolution = 0.5)
-```
-
-
-```{r }
-condition<-c()
-for (ident in HFpEF_Mouse_Nuclei.combined@meta.data$orig.ident) {
-  tmp<-unlist(strsplit(ident,split = "-"))
-  #currentBarcode<-paste0(tmp[2:length(tmp)],collapse = "_")
-  condition<-c(condition,tmp[1])
-}
-names(condition)<-names(HFpEF_Mouse_Nuclei.combined@active.ident)
-HFpEF_Mouse_Nuclei.combined$condition<-condition
-```
-
-```{r,fig.height=8, fig.width=15 }
-DimPlot(object = HFpEF_Mouse_Nuclei.combined, label=T, pt.size = 0.1, do.return=TRUE)
-DimPlot(object = HFpEF_Mouse_Nuclei.combined, group.by = "orig.ident", pt.size = 0.001, split.by = "condition")
-DimPlot(object = HFpEF_Mouse_Nuclei.combined, group.by = "seurat_clusters", pt.size = 0.001, split.by = "condition")
-DimPlot(object = HFpEF_Mouse_Nuclei.combined, group.by = "condition", pt.size = 0.001)
-FeaturePlot(HFpEF_Mouse_Nuclei.combined, features = c("IL7R","CD14","MS4A1","CD8A","NKG7","FCGR3A","FCER1A","PPBP","CD4"), min.cutoff = 0, label = TRUE, label.size = 4)
-FeaturePlot(HFpEF_Mouse_Nuclei.combined, features = c("IL7R","CD4"), min.cutoff = 0, label = TRUE, label.size = 4)
-
-```
-```{r}
-
-```
-
-```{r}
-table(HFpEF_Mouse_Nuclei.combined$sample)
-table(HFpEF_Mouse_Nuclei.combined$orig.ident)
-table(HFpEF_Mouse_Nuclei.combined$condition)
-table(HFpEF_Mouse_Nuclei.combined$seurat_clusters)
-```
-
-
-
-
-
-
-## 1.6.) Find Cluster specific Genes
-```{r}
-Idents(HFpEF_Mouse_Nuclei.combined)<-"seurat_clusters" 
-HFpEF_Mouse_Nuclei.combined.markers<-FindAllMarkers(object = HFpEF_Mouse_Nuclei.combined, assay = "RNA", only.pos = TRUE)
-TopGenesPerCluster<- HFpEF_Mouse_Nuclei.combined.markers %>% group_by(cluster) %>% top_n(5, avg_logFC)
-```
-
-```{r}
-TopGenesPerCluster
-```
-
-
-```{r, fig.height=7, fig.width=15}
-features<-unique(TopGenesPerCluster$gene)
-DotPlot(HFpEF_Mouse_Nuclei.combined, features = rev(features), group.by = "seurat_clusters", assay = "RNA", ) + theme(axis.text.x = element_text(angle = 45))
-
-#marker_genes = {'CD4 T cells':{'IL7R'},'CD14+ Monocytes':{'CD14',
-#                 'LYZ'}, 'B cells':{'MS4A1'}, 'CD8 T cells':{'CD8A'},
-#                 'NK cells':{'GNLY', 'NKG7'}, 'FCGR3A+ Monocytes':
-#                 {'FCGR3A', 'MS4A7'}, 'Dendritic Cells':{'FCER1A',
-#                 'CST3'}, 'Megakaryocytes':{'PPBP'}}
-
-```
-
-```{r}
-#marker_genes<-c("GNLY","NKG7","IL7R","CD8A","MS4A1","FCGR3A","MS4A7","LYZ","CD14","CST3","FCER1A","PPBP")
-marker_genes <- c("Pdgfra", "Col4a1", "Adamts5", "Lamb1", "Dpep1", "Ms4a4d", "Medag", "Col3a1", "Mmp2", "Dpt", "Dcn", "Dkk3", "Comp", "Tbx20",
-            "Meox1", "Prg4", "Frzb", "Tnc", "Col1a1", "Lox", "Postn", "Acta2","Lyz2", "Lgals3", "Mrc1", "Cd68", "Cd14", "CD16", "Msr1", "Cd209a",
-            "Cd83", "Napsa", "Cd74", "Ly6g", "Cxcr2", "Prox1", "Tie1", "Lyve1", "Cldn5", "Vwf", "Eng", "Emcn", "Fabp4", "Pecam1", "Cdh5",
-            "Ccl5", "Nkg7", "Ptprc", "Klrc1", "Ctla4", "Klre1", "Cd3g", "Trdc", "Icos", "Cd3e", "Lat", "Lef1", "Tcf7", "Iglc1", "Pax5",
-            "Iglc2", "Iglc3", "Cd79a", "Cd79b", "Cd19", "Plp1", "Kcna1", "Kcna2", "Cd59a", "Rgs5", "Tagln", "Myh11", "Vtn", "Notch3",
-            "Pdgfrb", "Cspg4", "Des", "Pln", "Nkain4", "Krt8", "Krt19", "Krt18")
-marker_genes <- c("Tnnt2", "Des", "Tntc", "Cdh4", "Mb","Cox6a2","Myl3",
-"Tpm1","Tnni3","Myl2","Fabp3","Slc25a4","Actc1"
-)
-
-DotPlot(HFpEF_Mouse_Nuclei.combined, features = rev(marker_genes), group.by = "seurat_clusters", assay = "RNA", ) + theme(axis.text.x = element_text(angle = 90))
-```
-
-## 1.7.)Rename Idents
-```{r}
-Heart.combined <- RenameIdents(Heart.combined, `0` = "Cardiomiocytes", `1` = "Fibroblasts", `2` = "ECs", 
-                               `3` = "Dentritic Cells", `4` = "Fibroblasts", `5` = "ECs", `6` = "Pericytes", `7` = "Dentritic Cells", `8` = "Fibroblasts", `9` = "ECs", 
-                               `10` = "Cardiomiocytes", `11` = "Dentritic Cells", `12` = "ECs", `13` = "Fibroblasts/ECs",`14` = "Cardiomiocytes", 
-                               `15` = "Cardiomiocytes", `16` = "SWL", `17` = "Cardiomiocytes", 
-                               `18` = "Pericytes/ECs", `19` = "Dentritic Cells", `20` = "Cardiomiocytes/Fibroblasts")
-
-
-#                     0             1           2           3           4                 5           6               7             8         9     
-#clusterNames<-c("NK cells","CD4 T cells","CD8 T cells","CD4 T cells","B cells","FCGR3A+ Monocytes","NK cells","CD4 T cells","CD14+ Monocytes","NK cells",
-#         10           11               12            13            14
-#                "NK cells", "Plasma Cells","Dendritic Cells","CD4 T cells","CD4 T cells")
-#Idents(FirstInMan.combined)<-"seurat_clusters"
-#names(clusterNames) <- levels(FirstInMan.combined)
-#FirstInMan.combined <- RenameIdents(FirstInMan.combined, clusterNames)
-
-
-FirstInMan.combined <- RenameIdents(FirstInMan.combined,'0'="NK cells",'1'="CD4 T cells",'2'="CD8 T cells",'3'="CD4 T cells",
-                                    '4'="B cells",'5'="FCGR3A+ Monocytes",'6'="NK cells",'7'="CD4 T cells",
-                                    '8'="CD14+ Monocytes",'9'="NK cells",'10'="NK cells",'11'= "Plasma Cells",
-                                    '12'="Dendritic Cells",'13'="CD4 T cells",'14'="CD4 T cells")
-FirstInMan.combined$celltypes<-Idents(FirstInMan.combined)
-
-```
-
-```{r}
-DimPlot(object = FirstInMan.combined, group.by = "celltypes", pt.size = 0.1, label = TRUE, label.size = 6)
-DimPlot(object = FirstInMan.combined, group.by = "celltypes",split.by = "condition", pt.size = 0.1, label = TRUE, label.size = 6)
-
-```
-
-
-##1.8.) Generate barplot of cell per cluster per condition
-```{r fig.height=5, fig.width=8, warning=FALSE}
-# Counting celltypes in timepoints
-library(stringr)
-library(tidyr)
-
-library(dplyr)
-library(ggplot2)
-library(scales)
-library(Seurat)
-V<- FirstInMan.combined@meta.data
-condition.ordered<-str_sort(unique(FirstInMan.combined@meta.data$condition),numeric = TRUE)
-
-
-V$condition<-factor(V$condition,levels = condition.ordered)
-V$celltypes<-factor(V$celltypes)
-
-Summary.Celltypes <- V %>% count(condition,celltypes,.drop = FALSE) %>% group_by(condition) %>%
-  mutate(freq = n /sum(n)) %>% complete(celltypes,fill = list(n=0,freq=0))
-
-Summary.Celltypes$celltypes <- factor(Summary.Celltypes$celltypes)
-condition<-c()
-
-#svg(filename = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/CD31+/Barplot-CellsperClusterPerSample.svg",width = 15, height = 10)
-ggplot(Summary.Celltypes, aes(x=condition, y= freq, fill= condition))+
-  geom_col(width = 0.9, color = "black")+
-  facet_wrap(~celltypes, nrow = 2, scales = "free")+
-  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
-  theme(panel.background = element_blank(), axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
-#dev.off()
-```
-
-
-
-##1.9.) Generate barplot of cell per cluster per condition
-```{r fig.height=5, fig.width=8, warning=FALSE}
-# Counting celltypes in timepoints
-V<- FirstInMan.combined@meta.data
-tmp2<-FirstInMan.combined@meta.data$orig.ident
-tmp<-trimws(FirstInMan.combined@meta.data$orig.ident, which = "left", )
-orig.ident.ordered<-factor(str_sort(unique(trimws(FirstInMan.combined@meta.data$orig.ident)),numeric = TRUE))
-
-V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
-V$celltypes<-factor(V$celltypes)
-
-Summary.Celltypes <- V %>% count(orig.ident, condition,celltypes,.drop = FALSE) %>% group_by(condition) %>%
-  mutate(freq = n /sum(n)) %>% complete(celltypes,fill = list(n=0,freq=0))
-
-
-tmp<-V %>% count(orig.ident, condition,celltypes,.drop = FALSE) 
-Summary.Celltypes$celltypes <- factor(Summary.Celltypes$celltypes)
-
-Summary.Celltypes$orig.ident<-factor(Summary.Celltypes$orig.ident,levels = orig.ident.ordered)
-#condition<-c()
-tmp<-Summary.Celltypes%>%arrange(condition)
-#svg(filename = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/CD31+/Barplot-CellsperClusterPerSample.svg",width = 15, height = 10)
-ggplot(Summary.Celltypes, aes(x=condition, y= freq, fill= orig.ident))+
-  geom_col(width = 0.9, color = "black")+
-  facet_wrap(~celltypes, nrow = 2, scales = "free")+
-  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
-  theme(panel.background = element_blank(), axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
-
-```
-
-
-##1.10.) Find DEG after Treatment
-```{r}
-table(FirstInMan.combined$condition)
-Idents(FirstInMan.combined) <- "condition"
-DEG_D1Placebo_vs_D4_Placebo <- FindMarkers(object = FirstInMan.combined, ident.1 = "D1_predose_Placebo", ident.2 = "D4_Placebo", assay = "RNA", slot = "data", logfc.threshold="0.1", test.use = "bimod",)
-DEG_D1Predose_1.5_vs_D4_1.5 <- FindMarkers(object = FirstInMan.combined, ident.1 = "D1_predose_1.5", ident.2 = "D4_1.5", assay = "RNA", slot = "data", logfc.threshold="0.1", test.use = "bimod")
-
-DEG_D1Placebo_vs_D4_Placebo$Gene<-rownames(DEG_D1Placebo_vs_D4_Placebo)
-DEG_D1Predose_1.5_vs_D4_1.5$Gene<-rownames(DEG_D1Predose_1.5_vs_D4_1.5)
-
-set1<-DEG_D1Placebo_vs_D4_Placebo[DEG_D1Placebo_vs_D4_Placebo$p_val<0.05,]
-set2<-DEG_D1Predose_1.5_vs_D4_1.5[DEG_D1Predose_1.5_vs_D4_1.5$p_val<0.05,]
-write.csv2(set1, file = "/media/Helios_scStorage/Wesley/103773-001/cellranger/Seurat3_Analysis_David/DEG_D1Placebo_vs_D4_Placebo.csv")
-write.csv2(set2, file = "/media/Helios_scStorage/Wesley/103773-001/cellranger/Seurat3_Analysis_David/DEG_D1Predose_1.5_vs_D4_1.5.csv")
-
-
-```
-
-```{r}
-
-celltypes<-levels(FirstInMan.combined$celltypes)
-celltype<-celltypes[1]
-
-table(FirstInMan.combined@)
-for (celltype in celltypes) {
-  df<-data.frame(Gene=mir92Targets)
-  
-  tmpSeurat<-subset(FirstInMan.combined, idents = celltype)
-  Idents(tmpSeurat) <- "orig.ident"
-  
-  avg<-AverageExpression(tmpSeurat, assays = "RNA", features = mir92Targets, verbose = FALSE)
-  avg$RNA<-exp(avg$RNA)
-  if (length(avg$RNA)==length(unique(FirstInMan.combined$orig.ident))) {
-    df$Tre_127_FC<-avg$RNA$Pat127_D4_1.5/avg$RNA$Pat127_D1_predose_1.5
-    df$Tre_129_FC<-avg$RNA$Pat129_D4_1.5/avg$RNA$Pat129_D1_predose_1.5
-    df$Tre_132_FC<-avg$RNA$Pat132_D4_1.5/avg$RNA$Pat132_D1_predose_1.5
-    df$Tre_137_FC<-avg$RNA$Pat137_D4_1.5/avg$RNA$Pat137_D1_predose_1.5
-    df$Tre_142_FC<-avg$RNA$Pat142_D4_1.5/avg$RNA$Pat142_D1_predose_1.5
-    df$Pla_128_FC<-avg$RNA$Pat128_D4_Placebo/avg$RNA$Pat128_D1_predose_Placebo
-    df$Pla_130_FC<-avg$RNA$Pat130_D4_Placebo/avg$RNA$Pat130_D1_predose_Placebo
-    
-    df_melted<-melt(df)
-    gg <- ggplot(df_melted, aes(x=variable, y=value)) + 
-      geom_boxplot() + scale_y_continuous(limits = c(0,2)) + 
-      labs(title = celltype)
-    print(gg)
-  }
-  else  {
-    cat("Skipping ",celltype, "because not enough cells")
-  }
-  
-}
-tail(FirstInMan.combined@assays$RNA)
-#loop over celltypes
-
-#loop over patient
-VlnPlot(FirstInMan.combined,features = c("GLRA1"))
-
-```
-
-
-
-##1.11.) Save and reload
-```{r}
-save.image("/media/Helios_scStorage/Wesley/103773-001/Workspace_12.11.19.R.RData")
-load("/media/Helios_scStorage/Wesley/103773-001/Workspace_12.11.19.R.RData")
-
-rm(HFpEF_Mouse_Nuclei.anchors, HFpEF_Mouse_Nuclei.combined, HFpEF_Mouse_Nuclei.combined.markers)
-```
-
-
-
-###################################################################################################
-##----------------------------------------------------------------------------------------------##
-###################################################################################################
-
-# 2.) Star default Filter
-## 2.2) Define static parameters
 ```{r}
 #Static Parameters 
 Paths <- c("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/104081-001-001/Solo.out/Gene/filtered_matrix_emptyDrops/",
@@ -350,15 +40,15 @@ Paths <- c("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/
 
 
 Samplenames <- c("HFpEF-1","HFpEF-2","CTRL-1",
-                 "CTRL-2","CTRL-3","HFpEF-6")
+                 "CTRL-2","CTRL-3","HFpEF-3")
 ```
 
 
-## 2.3) import and combine the raw cellranger counts with CCA
+## 1.3) import and combine the raw Starsolo counts with scTransform
 ```{r}
 SeuratObjectList <- list()
 for (i in 1:length(Paths)) {
-  SeuratObjectList[[i]]<-Importer(pathway = Paths[i],id = Samplenames[i], performNormalisation = TRUE, performVariableGeneDetection = TRUE, FilterCells = TRUE)
+  SeuratObjectList[[i]]<-Importer(pathway = Paths[i],id = Samplenames[i], performNormalisation = FALSE, performVariableGeneDetection = TRUE, performScaling = FALSE, FilterCells = TRUE)
 }
 ```
 
@@ -367,25 +57,40 @@ tmpList<-list()
 for (i in 1:length(SeuratObjectList)) {
   tmpid<-levels(Idents(SeuratObjectList[[i]][[1]]))
   #print(tmpid)
-  print(paste(Samplenames[i],length(Idents(SeuratObjectList[[1]][[1]])), "Cell"))
+  print(paste(Samplenames[i],length(Idents(SeuratObjectList[[i]][[1]])), "Cell"))
   
   tmp<-SeuratObjectList[[i]][[1]]
   tmpList[[i]]<-tmp
-  gg <- VlnPlot(object = tmp, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3, group.by = "orig.ident") + ggtitle(tmpid)
+  gg <- VlnPlot(object = tmp, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3, group.by = "orig.ident", pt.size = 0) + ggtitle(tmpid)
   print(gg)
-  tmp<-ScaleData(object = tmp)
-  tmp<-RunPCA(object = tmp, verbose = FALSE, ndims.print = 0)
-  DimHeatmap(object = tmp, dims = 1:10, )
-  gg<-ElbowPlot(tmp, ndims = 10) + labs(title=as.character(i))
-  print(gg)
+  #tmp<-ScaleData(object = tmp)
+  #tmp<-RunPCA(object = tmp, verbose = FALSE, ndims.print = 0)
+  #DimHeatmap(object = tmp, dims = 1:10, )
+  #gg<-ElbowPlot(tmp, ndims = 10) + labs(title=as.character(i))
+  #print(gg)
 }
+```
+```{r}
 SeuratObjectList<-tmpList
 ```
 
-## 2.4.) Integrate Data
+## 2.4.) Integrate Data 
+```{r, warning = FALSE, message = TRUE}
+for (i in 1:length(SeuratObjectList)) {
+    SeuratObjectList[[i]] <- SCTransform(SeuratObjectList[[i]], verbose = TRUE, vars.to.regress = c("percent.mito"))
+}
+```
+
 ```{r}
-HFpEF_Mouse_Nuclei.emptyDrop.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:10, k.filter = 20)
-HFpEF_Mouse_Nuclei.emptyDrop.combined <- IntegrateData(anchorset = HFpEF_Mouse_Nuclei.emptyDrop.anchors, dims = 1:10)
+integration.features <- SelectIntegrationFeatures(object.list = SeuratObjectList, nfeatures = 3000)
+integration.list <- 
+  PrepSCTIntegration(object.list = SeuratObjectList, anchor.features = integration.features, 
+    verbose = FALSE)
+```
+
+```{r}
+HFpEF_Mouse_Nuclei.emptyDrop.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, normalization.method = "SCT", anchor.features = integration.features, verbose = FALSE)
+HFpEF_Mouse_Nuclei.emptyDrop.combined <- IntegrateData(anchorset = HFpEF_Mouse_Nuclei.emptyDrop.anchors, normalization.method = "SCT", verbose = FALSE)
 ```
 ## 2.5.) Cluster data
 ```{r}
@@ -600,7 +305,11 @@ ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= orig.ident))+
 ```{r}
 table(HFpEF_Mouse_Nuclei.emptyDrop.combined$condition)
 Idents(HFpEF_Mouse_Nuclei.emptyDrop.combined) <- "condition"
-DEG_CTRL_HFpEF <- FindMarkers(object = HFpEF_Mouse_Nuclei.emptyDrop.combined, ident.1 = "CTRL", ident.2 = "HFpEF", assay = "RNA", slot = "data", logfc.threshold="0.1", test.use = "bimod")
+DEG_CTRL_HFpEF <- FindMarkers(object = HFpEF_Mouse_Nuclei.emptyDrop.combined, ident.1 = "CTRL", ident.2 = "HFpEF", assay = "RNA", test.use = "t")
+
+Idents(HFpEF_Mouse_Nuclei.emptyDrop.combined) <- "orig.ident"
+
+DEG_CTRL_HFpEF_indiv <- FindMarkers(object = HFpEF_Mouse_Nuclei.emptyDrop.combined, ident.1 = c("CTRL-1","CTRL-2","CTRL-3"), ident.2 = c("HFpEF-1","HFpEF-2","HFpEF-6"), assay = "RNA", test.use = "t")
 
 
 DEG_CTRL_HFpEF$Gene<-rownames(DEG_CTRL_HFpEF)
@@ -661,7 +370,7 @@ save.image("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/
 
 #Save Seurat Object
 saveRDS(HFpEF_Mouse_Nuclei.emptyDrop.combined, file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/AllCells/SeuratObject_AllCells.25.06.20.Rds")
-load("/media/Helios_scStorage/Wesley/103773-001/Workspace_12.11.19.R.RData")
+load("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/2ndRun(104081)/starsolo/Workspace_25.06.20.RData")
 ```
 
 ```{r}
@@ -681,7 +390,7 @@ PlotClusterPrecentageBarplot(x=HFpEF_Mouse_Nuclei.emptyDrop.combined$seurat_clus
 
 library(biomaRt)
 ####   Annotate COUNT Matrix ####
-
+org="mm10"
 
 if(org=="hg19"){
   dataset = "hsapiens_gene_ensembl"
@@ -748,12 +457,39 @@ Anno = Anno[,-1]
 
 
 ```{r}
+
+Idents(HFpEF_Mouse_Nuclei.emptyDrop.combined)<- "orig.ident"
+HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression <- AverageExpression(HFpEF_Mouse_Nuclei.emptyDrop.combined, assays = "RNA")
+table(HFpEF_Mouse_Nuclei.emptyDrop.combined$orig.ident)
+HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression<-HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression[[1]]
+HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression_new<-data.frame("CTRL-1"=HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression$`CTRL-1`,
+                                                               "CTRL-2"=HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression$`CTRL-2`,
+                                                               "CTRL-3"=HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression$`CTRL-3`,
+                                                               "HFpEF-1"=HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression$`HFpEF-1`,
+                                                               "HFpEF-2"=HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression$`HFpEF-2`,
+                                                               "HFpEF-3"=HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression$`HFpEF-6`,
+                                                               row.names = rownames(HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression))
+
+
+head(HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression_new)
+
+#calculate t.test per line
+p.values<-c()
+for(i in 1:nrow(HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression_new)) {
+    row <- HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression_new[i,]
+    # do stuff with row
+    p.values<-c(p.values, unlist(t.test(x = row[0:3], y = row[4:6]))[c("p.value")])
+}
+HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression_new$p.valuesCTRL_HFpEF<-p.values
+
+ttest<-t.test(value ~ group, data=HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression.melted)
+HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression$ttest<-t.test(x = HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression[0:3], HFpEF_Mouse_Nuclei.emptyDrop.AverageExpression[4:6])
+
+
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 BiocManager::install("clusterProfiler")  
 library(clusterProfiler)
-library(DESeq2)
-
 
 table(HFpEF_Mouse_Nuclei.emptyDrop.combined$condition)
 table(HFpEF_Mouse_Nuclei.emptyDrop.combined$orig.ident)
@@ -763,10 +499,9 @@ Idents(HFpEF_Mouse_Nuclei.emptyDrop.combined)<-"orig.ident"
 
 DEG_CTRL_HFpEF_indiv <- FindMarkers(object = HFpEF_Mouse_Nuclei.emptyDrop.combined, ident.1 = "CTRL", ident.2 = "HFpEF", assay = "RNA", slot = "data", logfc.threshold="0.1", test.use = "DESeq2")
 
-DEG_CTRL_HFpEF_indiv <- FindMarkers(object = HFpEF_Mouse_Nuclei.emptyDrop.combined, ident.1 = c("CTRL-1","CTRL-2","CTRL-3"), ident.2 = c("HFpEF-1","HFpEF-2","HFpEF-6"), assay = "RNA", slot = "data", logfc.threshold="0.1", test.use = "DESeq2")
 
-VlnPlot(HFpEF_Mouse_Nuclei.emptyDrop.combined, features = c("6030445D17Rik"), assay = "RNA", group.by = "orig.ident")
-
+table(HFpEF_Mouse_Nuclei.emptyDrop.combined$orig.ident)
+DEG_CTRL_HFpEF_indiv <- FindMarkers(object =HFpEF_Mouse_Nuclei.emptyDrop.combined, ident.1 = c("CTRL-1","CTRL-2","CTRL-3"), ident.2 = c("HFpEF-1","HFpEF-2","HFpEF-6"), assay = "RNA", slot = "data", logfc.threshold="0.1")
 
 #Enrich KEGG DB
 kegg <- compareCluster(geneCluster=cluster.entrez.list,  
@@ -785,6 +520,32 @@ if(exists("kegg")){
 
 
 
+
+```
+
+
+
+
+```{r}
+WW_Summary <- structure(list(Trait =
+  c("Morph PC1", "Morph PC2", "Morph PC3", "Morph PC4", "Colour", "Delta15N", "Delta13C"),
+  T_Mean = c(-0.000369133942377988, -0.478614374395391, -0.0429785751248986, 0.141563333908087, 5.09447415329768, 7.79253141831239, -20.3678994614004),
+  T_SD = c(1.25617540601557, 0.994922039584068, 0.72787412346719, 0.5683273217636, 1.85452769780342, 1.56401940841295, 2.33461396773921),
+  T_N = c(615, 615, 615, 615, 561, 557, 557),
+  HZ_Mean = c(0.379669406453242, 0.307293731157124, -0.0499328976749929, -0.0563021988086238, 4.74712643678161, 8.4568926056338, -20.8209771126761),
+  HZ_SD = c(1.27837645625113, 1.11890593333031, 0.71490087377916, 0.699316698091669, 1.90101932622734, 1.86547215761457, 1.9590774632374),
+  HZ_N = c(1137, 1137, 1137, 1137, 1131, 1136, 1136),
+  A_Mean = c(-0.818704170327851, -0.104449965981942, 0.157885253051751, -0.0437302662392194, 4.31320754716981, 9.79891783567134, -19.955250501002),
+  A_SD = c(1.29535566832773, 0.97478498249366, 0.678515276691309, 0.563663991917263, 1.63029422418466, 2.06376134152221, 1.47077203157055),
+  A_N = c(527, 527, 527, 527, 530, 499, 499)),
+  .Names = c("Trait", "T_Mean", "T_SD", "T_N", "HZ_Mean", "HZ_SD", "HZ_N", "A_Mean", "A_SD", "A_N"),
+  class = "data.frame", row.names = c(NA, -7L))
+
+unlist(t.test(x = c(2,4,3), y = c(5,8,9)))[c("p.value")]
+
+WW_Summary_T <- data.frame(t(sapply(WW_Summary[,c(2,8)], function(temp)
+                unlist(t.test(temp, alternative = c("two.sided"))[c("statistic",
+                "parameter", "p.value", "conf.int")]))))
 
 ```
 

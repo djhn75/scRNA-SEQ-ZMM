@@ -267,6 +267,9 @@ write.csv2(set2, file = "/media/Helios_scStorage/Wesley/103773-001/cellranger/Se
 
 ```
 
+
+
+
 ```{r}
 save.image("/media/Helios_scStorage/Wesley/103773-001/Workspace_12.11.19.R.RData")
 load("/media/Helios_scStorage/Wesley/103773-001/Workspace_12.11.19.R.RData")
