@@ -5,7 +5,7 @@ library(Seurat)
 #' @author David John
 #' @param seuratObject 
 #' @return filtered seurat object
-FilterDeadCells <- function(seuratObject, minFeatures=200, maxFeatures=3000, maxMito=0.2){
+FilterDeadCells <- function(seuratObject, minFeatures=200, maxFeatures=3000, maxMito=0.1){
   # The number of features and UMIs (nFeature_RNA and nCount_RNA) are automatically calculated for every object by Seurat.
   # For non-UMI data, nCount_RNA represents the sum of the non-normalized values within a cell
   # We calculate the percentage of mitochondrial features here and store it in object metadata as `percent.mito`.

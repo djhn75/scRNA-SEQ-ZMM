@@ -1,0 +1,790 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+chunk_output_type: inline
+---
+
+
+
+## 1) Import packages and files
+```{r message=FALSE}
+#load libraries
+library(dplyr)
+library(ggpubr)
+library(Seurat)
+require(scales)
+```
+
+```{r}
+# Quick load
+#load("")
+```
+
+
+```{r}
+source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
+outputFolder<-"/media/Helios_scStorage/Sana-Heidelberg/Seurat3/"
+sink(file = paste0(outputFolder,"SanaHeidelBerg-AnalysisDavid-Seurat3.rmd.log"), append = TRUE, split = TRUE)
+```
+
+################################################################
+###SWAT_CD
+################################################################
+```{r}
+SWAT.CD.umi<-Read10X(data.dir = "/media/Helios_scStorage/Sana-Heidelberg/starsolo/SWAT_CDSolo.out/Gene/filtered/")
+SWAT.CD.bc<-Read10X(data.dir = "/media/Helios_scStorage/Sana-Heidelberg/cite-seq/SWAT_CD/umi_count",gene.column = 1)
+joint.bcs <- intersect(colnames(SWAT.CD.umi), colnames(SWAT.CD.bc))
+# Subset RNA and HTO counts by joint cell barcodes
+SWAT.CD.umi <- SWAT.CD.umi[, joint.bcs]
+SWAT.CD.bc <- as.matrix(SWAT.CD.bc[, joint.bcs])
+
+# Confirm that the HTO have the correct names
+rownames(SWAT.CD.bc)
+```
+
+```{r}
+# Setup Seurat object
+SWAT.CD.seurat <- CreateSeuratObject(counts = SWAT.CD.umi)
+
+# Normalize RNA data with log normalization
+SWAT.CD.seurat <- NormalizeData(SWAT.CD.seurat)
+# Find and scale variable features
+SWAT.CD.seurat <- FindVariableFeatures(SWAT.CD.seurat, selection.method = "mean.var.plot")
+SWAT.CD.seurat <- ScaleData(SWAT.CD.seurat, features = VariableFeatures(SWAT.CD.seurat))
+```
+
+```{r}
+# Add HTO data as a new assay independent from RNA
+SWAT.CD.seurat[["HTO"]] <- CreateAssayObject(counts = SWAT.CD.bc)
+# Normalize HTO data, here we use centered log-ratio (CLR) transformation
+SWAT.CD.seurat <- NormalizeData(SWAT.CD.seurat, assay = "HTO", normalization.method = "CLR")
+```
+```{r}
+SWAT.CD.seurat <- HTODemux(SWAT.CD.seurat, assay = "HTO", positive.quantile = 0.99)
+
+```
+```{r}
+table(SWAT.CD.seurat$HTO_classification.global)
+Idents(SWAT.CD.seurat) <- "HTO_maxID"
+RidgePlot(SWAT.CD.seurat, assay = "HTO", features = rownames(SWAT.CD.seurat[["HTO"]])[1:2], ncol = 2)
+```
+```{r}
+Idents(SWAT.CD.seurat) <- "HTO_classification.global"
+VlnPlot(SWAT.CD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE)
+
+```
+
+```{r}
+# First, we will remove negative cells from the object
+SWAT.CD.seurat.subset <- subset(SWAT.CD.seurat, idents = "Negative", invert = TRUE)
+
+# Calculate a tSNE embedding of the HTO data
+DefaultAssay(SWAT.CD.seurat.subset) <- "HTO"
+SWAT.CD.seurat.subset <- ScaleData(SWAT.CD.seurat.subset, features = rownames(SWAT.CD.seurat.subset), 
+    verbose = FALSE)
+SWAT.CD.seurat.subset <- RunPCA(SWAT.CD.seurat.subset, features = rownames(SWAT.CD.seurat.subset), approx = FALSE)
+SWAT.CD.seurat.subset <- RunTSNE(SWAT.CD.seurat.subset, dims = 1:8, perplexity = 100)
+DimPlot(SWAT.CD.seurat.subset, group.by = "HTO_classification")
+```
+
+
+
+
+
+
+
+
+
+
+################################################################
+### SWAT_HFD
+################################################################
+```{r}
+SWAT.HFD.umi<-Read10X(data.dir = "/media/Helios_scStorage/Sana-Heidelberg/starsolo/SWAT_HFDSolo.out/Gene/filtered/")
+SWAT.HFD.bc<-Read10X(data.dir = "/media/Helios_scStorage/Sana-Heidelberg/cite-seq/SWAT_HFD/umi_count",gene.column = 1)
+joint.bcs <- intersect(colnames(SWAT.HFD.umi), colnames(SWAT.HFD.bc))
+# Subset RNA and HTO counts by joint cell barcodes
+SWAT.HFD.umi <- SWAT.HFD.umi[, joint.bcs]
+SWAT.HFD.bc <- as.matrix(SWAT.HFD.bc[, joint.bcs])
+
+# Confirm that the HTO have the correct names
+rownames(SWAT.HFD.bc)
+```
+
+```{r}
+# Setup Seurat object
+SWAT.HFD.seurat <- CreateSeuratObject(counts = SWAT.HFD.umi)
+
+# Normalize RNA data with log normalization
+SWAT.HFD.seurat <- NormalizeData(SWAT.HFD.seurat)
+# Find and scale variable features
+SWAT.HFD.seurat <- FindVariableFeatures(SWAT.HFD.seurat, selection.method = "mean.var.plot")
+SWAT.HFD.seurat <- ScaleData(SWAT.HFD.seurat, features = VariableFeatures(SWAT.HFD.seurat))
+```
+
+```{r}
+# Add HTO data as a new assay independent from RNA
+SWAT.HFD.seurat[["HTO"]] <- CreateAssayObject(counts = SWAT.HFD.bc)
+# Normalize HTO data, here we use centered log-ratio (CLR) transformation
+SWAT.HFD.seurat <- NormalizeData(SWAT.HFD.seurat, assay = "HTO", normalization.method = "CLR")
+```
+```{r}
+SWAT.HFD.seurat <- HTODemux(SWAT.HFD.seurat, assay = "HTO", positive.quantile = 0.99)
+
+```
+
+```{r}
+table(SWAT.HFD.seurat$HTO_classification.global)
+table(SWAT.HFD.seurat$HTO_classification)
+
+
+Idents(SWAT.HFD.seurat) <- "HTO_maxID"
+RidgePlot(SWAT.HFD.seurat, assay = "HTO", features = rownames(SWAT.HFD.seurat[["HTO"]])[1:2], ncol = 2)
+```
+```{r}
+Idents(SWAT.HFD.seurat) <- "HTO_classification.global"
+VlnPlot(SWAT.HFD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE)
+
+```
+
+```{r}
+# First, we will remove negative cells from the object
+SWAT.HFD.seurat.subset <- subset(SWAT.HFD.seurat, idents = "Negative", invert = TRUE)
+
+# Calculate a tSNE embedding of the HTO data
+DefaultAssay(SWAT.HFD.seurat.subset) <- "HTO"
+SWAT.HFD.seurat.subset <- ScaleData(SWAT.HFD.seurat.subset, features = rownames(SWAT.HFD.seurat.subset), 
+    verbose = FALSE)
+SWAT.HFD.seurat.subset <- RunPCA(SWAT.HFD.seurat.subset, features = rownames(SWAT.HFD.seurat.subset), approx = FALSE)
+SWAT.HFD.seurat.subset <- RunTSNE(SWAT.HFD.seurat.subset, dims = 1:8, perplexity = 100)
+DimPlot(SWAT.HFD.seurat.subset, group.by = "HTO_classification")
+```
+
+
+
+
+
+
+
+
+################################################################
+### EWAT_CD
+################################################################
+```{r}
+EWAT.CD.umi<-Read10X(data.dir = "/media/Helios_scStorage/Sana-Heidelberg/starsolo/EWAT_CDSolo.out/Gene/filtered/")
+EWAT.CD.bc<-Read10X(data.dir = "/media/Helios_scStorage/Sana-Heidelberg/cite-seq/EWAT_CD/umi_count",gene.column = 1)
+joint.bcs <- intersect(colnames(EWAT.CD.umi), colnames(EWAT.CD.bc))
+# Subset RNA and HTO counts by joint cell barcodes
+EWAT.CD.umi <- EWAT.CD.umi[, joint.bcs]
+EWAT.CD.bc <- as.matrix(EWAT.CD.bc[, joint.bcs])
+
+# Confirm that the HTO have the correct names
+rownames(EWAT.CD.bc)
+```
+
+```{r}
+# Setup Seurat object
+EWAT.CD.seurat <- CreateSeuratObject(counts = EWAT.CD.umi)
+
+# Normalize RNA data with log normalization
+EWAT.CD.seurat <- NormalizeData(EWAT.CD.seurat)
+# Find and scale variable features
+EWAT.CD.seurat <- FindVariableFeatures(EWAT.CD.seurat, selection.method = "mean.var.plot")
+EWAT.CD.seurat <- ScaleData(EWAT.CD.seurat, features = VariableFeatures(EWAT.CD.seurat))
+```
+
+```{r}
+# Add HTO data as a new assay independent from RNA
+EWAT.CD.seurat[["HTO"]] <- CreateAssayObject(counts = EWAT.CD.bc)
+# Normalize HTO data, here we use centered log-ratio (CLR) transformation
+EWAT.CD.seurat <- NormalizeData(EWAT.CD.seurat, assay = "HTO", normalization.method = "CLR")
+```
+```{r}
+EWAT.CD.seurat <- HTODemux(EWAT.CD.seurat, assay = "HTO", positive.quantile = 0.99)
+
+```
+
+```{r}
+table(EWAT.CD.seurat$HTO_classification.global)
+Idents(EWAT.CD.seurat) <- "HTO_maxID"
+RidgePlot(EWAT.CD.seurat, assay = "HTO", features = rownames(EWAT.CD.seurat[["HTO"]])[1:2], ncol = 2)
+```
+```{r}
+Idents(EWAT.CD.seurat) <- "HTO_classification.global"
+p1<-VlnPlot(EWAT.CD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE)
+p2<-VlnPlot(EWAT.CD.seurat, features = "nCount_RNA", pt.size = 0.1, group.by = "HTO_maxID")
+
+ggarrange(p1,p2)
+ggarrange(VlnPlot(SWAT.CD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE),
+          VlnPlot(EWAT.HFD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE),
+          VlnPlot(EWAT.CD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE),
+          VlnPlot(EWAT.HFD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE))
+
+```
+
+```{r}
+# First, we will remove negative cells from the object
+EWAT.CD.seurat.subset <- subset(EWAT.CD.seurat, idents = "Negative", invert = TRUE)
+
+# Calculate a tSNE embedding of the HTO data
+DefaultAssay(EWAT.CD.seurat.subset) <- "HTO"
+EWAT.CD.seurat.subset <- ScaleData(EWAT.CD.seurat.subset, features = rownames(EWAT.CD.seurat.subset), 
+    verbose = FALSE)
+EWAT.CD.seurat.subset <- RunPCA(EWAT.CD.seurat.subset, features = rownames(EWAT.CD.seurat.subset), approx = FALSE)
+EWAT.CD.seurat.subset <- RunTSNE(EWAT.CD.seurat.subset, dims = 1:8, perplexity = 100)
+DimPlot(EWAT.CD.seurat.subset, group.by = "HTO_classification")
+```
+
+
+
+
+
+
+
+
+
+
+################################################################
+###EWAT_HFD
+################################################################
+```{r}
+EWAT.HFD.umi<-Read10X(data.dir = "/media/Helios_scStorage/Sana-Heidelberg/starsolo/EWAT_HFDSolo.out/Gene/filtered/")
+EWAT.HFD.bc<-Read10X(data.dir = "/media/Helios_scStorage/Sana-Heidelberg/cite-seq/EWAT_HFD/umi_count",gene.column = 1)
+joint.bcs <- intersect(colnames(EWAT.HFD.umi), colnames(EWAT.HFD.bc))
+# Subset RNA and HTO counts by joint cell barcodes
+EWAT.HFD.umi <- EWAT.HFD.umi[, joint.bcs]
+EWAT.HFD.bc <- as.matrix(EWAT.HFD.bc[, joint.bcs])
+
+# Confirm that the HTO have the correct names
+rownames(EWAT.HFD.bc)
+```
+
+```{r}
+# Setup Seurat object
+EWAT.HFD.seurat <- CreateSeuratObject(counts = EWAT.HFD.umi)
+
+# Normalize RNA data with log normalization
+EWAT.HFD.seurat <- NormalizeData(EWAT.HFD.seurat)
+# Find and scale variable features
+EWAT.HFD.seurat <- FindVariableFeatures(EWAT.HFD.seurat, selection.method = "mean.var.plot")
+EWAT.HFD.seurat <- ScaleData(EWAT.HFD.seurat, features = VariableFeatures(EWAT.HFD.seurat))
+```
+
+```{r}
+# Add HTO data as a new assay independent from RNA
+EWAT.HFD.seurat[["HTO"]] <- CreateAssayObject(counts = EWAT.HFD.bc)
+# Normalize HTO data, here we use centered log-ratio (CLR) transformation
+EWAT.HFD.seurat <- NormalizeData(EWAT.HFD.seurat, assay = "HTO", normalization.method = "CLR")
+```
+```{r}
+EWAT.HFD.seurat <- HTODemux(EWAT.HFD.seurat, assay = "HTO", positive.quantile = 0.99)
+
+```
+
+```{r}
+table(EWAT.HFD.seurat$HTO_classification.global)
+Idents(EWAT.HFD.seurat) <- "HTO_maxID"
+RidgePlot(EWAT.HFD.seurat, assay = "HTO", features = rownames(EWAT.HFD.seurat[["HTO"]])[1:2], ncol = 2)
+```
+```{r}
+Idents(EWAT.HFD.seurat) <- "HTO_classification.global"
+VlnPlot(EWAT.HFD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE)
+
+```
+
+```{r}
+# First, we will remove negative cells from the object
+EWAT.HFD.seurat.subset <- subset(EWAT.HFD.seurat, idents = "Negative", invert = TRUE)
+
+# Calculate a tSNE embedding of the HTO data
+DefaultAssay(EWAT.HFD.seurat.subset) <- "HTO"
+EWAT.HFD.seurat.subset <- ScaleData(EWAT.HFD.seurat.subset, features = rownames(EWAT.HFD.seurat.subset), 
+    verbose = FALSE)
+EWAT.HFD.seurat.subset <- RunPCA(EWAT.HFD.seurat.subset, features = rownames(EWAT.HFD.seurat.subset), approx = FALSE)
+EWAT.HFD.seurat.subset <- RunTSNE(EWAT.HFD.seurat.subset, dims = 1:8, perplexity = 100)
+DimPlot(EWAT.HFD.seurat.subset, group.by = "HTO_classification")
+```
+
+
+
+
+
+
+
+
+###1.2.) Make Quality Plots
+```{r}
+table(SWAT.CD.seurat.subset$HTO_maxID)
+table(SWAT.HFD.seurat.subset$HTO_maxID)
+table(EWAT.CD.seurat.subset$HTO_maxID)
+table(EWAT.HFD.seurat.subset$HTO_maxID)
+
+ggarrange(VlnPlot(SWAT.CD.seurat, features = "nCount_RNA", pt.size = 0.1, group.by = "HTO_classification.global", log = T),
+          VlnPlot(SWAT.HFD.seurat, features = "nCount_RNA", pt.size = 0.1, group.by = "HTO_classification.global", log = T),
+          VlnPlot(EWAT.CD.seurat, features = "nCount_RNA", pt.size = 0.1, group.by = "HTO_classification.global", log = T),
+          VlnPlot(EWAT.HFD.seurat, features = "nCount_RNA", pt.size = 0.1, group.by = "HTO_classification.global", log = T)
+          )
+```
+
+###1.3.) keep ony "Singlets"
+```{r}
+Idents(SWAT.CD.seurat) <- "HTO_classification.global"
+Idents(SWAT.HFD.seurat) <- "HTO_classification.global"
+Idents(EWAT.CD.seurat) <- "HTO_classification.global"
+Idents(EWAT.HFD.seurat) <- "HTO_classification.global"
+
+SWAT.CD.singlet <- subset(SWAT.CD.seurat, idents = "Singlet")
+SWAT.HFD.singlet <- subset(SWAT.HFD.seurat, idents = "Singlet")
+EWAT.CD.singlet <- subset(EWAT.CD.seurat, idents = "Singlet")
+EWAT.HFD.singlet <- subset(EWAT.HFD.seurat, idents = "Singlet")
+```
+
+```{r}
+SWAT.CD.singlet <- FindVariableFeatures(SWAT.CD.singlet, selection.method = "mean.var.plot")
+SWAT.CD.singlet <- ScaleData(SWAT.CD.singlet, features = VariableFeatures(SWAT.CD.singlet))
+SWAT.CD.singlet <- RunPCA(SWAT.CD.singlet, features = VariableFeatures(SWAT.CD.singlet))
+SWAT.CD.singlet <- FindNeighbors(SWAT.CD.singlet, reduction = "pca", dims = 1:10)
+SWAT.CD.singlet <- FindClusters(SWAT.CD.singlet, resolution = 0.6, verbose = FALSE)
+SWAT.CD.singlet <- RunTSNE(SWAT.CD.singlet, reduction = "pca", dims = 1:10)
+DimPlot(SWAT.CD.singlet, group.by = "HTO_classification")
+
+
+SWAT.HFD.singlet <- FindVariableFeatures(SWAT.HFD.singlet, selection.method = "mean.var.plot")
+SWAT.HFD.singlet <- ScaleData(SWAT.HFD.singlet, features = VariableFeatures(SWAT.HFD.singlet))
+SWAT.HFD.singlet <- RunPCA(SWAT.HFD.singlet, features = VariableFeatures(SWAT.HFD.singlet))
+SWAT.HFD.singlet <- FindNeighbors(SWAT.HFD.singlet, reduction = "pca", dims = 1:10)
+SWAT.HFD.singlet <- FindClusters(SWAT.HFD.singlet, resolution = 0.6, verbose = FALSE)
+SWAT.HFD.singlet <- RunTSNE(SWAT.HFD.singlet, reduction = "pca", dims = 1:10)
+DimPlot(SWAT.HFD.singlet, group.by = "HTO_classification")
+
+
+EWAT.CD.singlet <- FindVariableFeatures(EWAT.CD.singlet, selection.method = "mean.var.plot")
+EWAT.CD.singlet <- ScaleData(EWAT.CD.singlet, features = VariableFeatures(EWAT.CD.singlet))
+EWAT.CD.singlet <- RunPCA(EWAT.CD.singlet, features = VariableFeatures(EWAT.CD.singlet))
+EWAT.CD.singlet <- FindNeighbors(EWAT.CD.singlet, reduction = "pca", dims = 1:10)
+EWAT.CD.singlet <- FindClusters(EWAT.CD.singlet, resolution = 0.6, verbose = FALSE)
+EWAT.CD.singlet <- RunTSNE(EWAT.CD.singlet, reduction = "pca", dims = 1:10)
+DimPlot(EWAT.CD.singlet, group.by = "HTO_classification")
+
+
+
+EWAT.HFD.singlet <- FindVariableFeatures(EWAT.HFD.singlet, selection.method = "mean.var.plot")
+EWAT.HFD.singlet <- ScaleData(EWAT.HFD.singlet, features = VariableFeatures(EWAT.HFD.singlet))
+EWAT.HFD.singlet <- RunPCA(EWAT.HFD.singlet, features = VariableFeatures(EWAT.HFD.singlet))
+EWAT.HFD.singlet <- FindNeighbors(EWAT.HFD.singlet, reduction = "pca", dims = 1:10)
+EWAT.HFD.singlet <- FindClusters(EWAT.HFD.singlet, resolution = 0.6, verbose = FALSE)
+EWAT.HFD.singlet <- RunTSNE(EWAT.HFD.singlet, reduction = "pca", dims = 1:10)
+DimPlot(EWAT.HFD.singlet, group.by = "HTO_classification")
+
+
+
+table(EWAT.CD.singlet@meta.data$HTO_maxID)
+
+save.image("/media/Helios_scStorage/Sana-Heidelberg/cite-seq/workspace.RDATA")
+
+```
+
+###1.4.) Merge and Reclusters Samples
+```{r}
+SWAT.CD.singlet$sample<-rep("SWAT_CD", length(colnames(SWAT.CD.singlet)))
+SWAT.HFD.singlet$sample<-rep("SWAT_HFD", length(colnames(SWAT.HFD.singlet)))
+EWAT.CD.singlet$sample<-rep("EWAT_CD", length(colnames(EWAT.CD.singlet)))
+EWAT.HFD.singlet$sample<-rep("EWAT_HFD", length(colnames(EWAT.HFD.singlet)))
+
+table(paste(rep("EWAT_CD", length(colnames(EWAT.CD.singlet))), strsplit(EWAT.CD.singlet$HTO_classification,"-")[[1]][1], sep = "_"))
+table(EWAT.CD.singlet$HTO_classification)
+table(substr(EWAT.CD.singlet$HTO_classification,1,2))
+
+SWAT.CD.singlet$condition<-paste(rep("SWAT_CD", length(colnames(SWAT.CD.singlet))), substr(SWAT.CD.singlet$HTO_classification,1,2))
+SWAT.HFD.singlet$condition<-paste(rep("SWAT_HFD", length(colnames(SWAT.HFD.singlet))), substr(SWAT.HFD.singlet$HTO_classification,1,2))
+EWAT.CD.singlet$condition<-paste(rep("EWAT_CD", length(colnames(EWAT.CD.singlet))), substr(EWAT.CD.singlet$HTO_classification,1,2))
+EWAT.HFD.singlet$condition<-paste(rep("EWAT_HFD", length(colnames(EWAT.HFD.singlet))), substr(EWAT.HFD.singlet$HTO_classification,1,2))
+
+table(EWAT.CD.singlet$condition)
+
+AllSample.Seurat<-merge(x = SWAT.CD.singlet, y = SWAT.HFD.singlet)
+AllSample.Seurat<-merge(x = AllSample.Seurat, y = EWAT.CD.singlet)
+AllSample.Seurat<-merge(x = AllSample.Seurat, y = EWAT.HFD.singlet)
+```
+
+```{r}
+DefaultAssay(AllSample.Seurat)<-"RNA"
+AllSample.Seurat <- FindVariableFeatures(AllSample.Seurat, selection.method = "mean.var.plot")
+AllSample.Seurat <- ScaleData(AllSample.Seurat, features = VariableFeatures(AllSample.Seurat))
+AllSample.Seurat <- RunPCA(AllSample.Seurat, features = VariableFeatures(AllSample.Seurat))
+AllSample.Seurat <- FindNeighbors(AllSample.Seurat, reduction = "pca", dims = 1:10)
+AllSample.Seurat <- FindClusters(AllSample.Seurat, resolution = 0.6, verbose = FALSE)
+AllSample.Seurat <- RunTSNE(AllSample.Seurat, reduction = "pca", dims = 1:10)
+AllSample.Seurat <- RunUMAP(AllSample.Seurat, reduction = "pca", dims = 1:10)
+
+AllSample.Seurat$repeats<-substr(AllSample.Seurat$HTO_classification,1,2)
+
+```
+
+
+
+```{r, fig.height=12, fig.height=15}
+DimPlot(AllSample.Seurat, group.by = "seurat_clusters", pt.size = 2, label = T, label.size = 15)
+DimPlot(AllSample.Seurat, group.by = "HTO_classification", pt.size = 2, label = T, label.size = 15)
+DimPlot(AllSample.Seurat, group.by = "condition", pt.size = 2, label = T, label.size = 15)
+DimPlot(AllSample.Seurat, group.by = "sample", pt.size = 2, label = T, label.size = 15)
+ggarrange(DimPlot(AllSample.Seurat, group.by = "seurat_clusters", pt.size = 2, label = T, label.size = 15),
+          DimPlot(AllSample.Seurat, group.by = "repeats"),
+          DimPlot(AllSample.Seurat, group.by = "condition"),
+          DimPlot(AllSample.Seurat, group.by = "sample")
+)
+
+```
+
+```{r, fig.height=12, fig.height=15}
+DimPlot(AllSample.Seurat, group.by = "seurat_clusters", pt.size = 2, label = T, label.size = 15, reduction = "umap")
+DimPlot(AllSample.Seurat, group.by = "HTO_classification", pt.size = 2, label = T, label.size = 15, reduction = "umap")
+DimPlot(AllSample.Seurat, group.by = "condition", pt.size = 2, label = T, label.size = 15, reduction = "umap")
+DimPlot(AllSample.Seurat, group.by = "sample", pt.size = 2, label = T, label.size = 15, reduction = "umap")
+ggarrange(DimPlot(AllSample.Seurat, group.by = "seurat_clusters", pt.size = 2, label = T, label.size = 15, reduction = "umap"),
+          DimPlot(AllSample.Seurat, group.by = "repeats", reduction = "umap"),
+          DimPlot(AllSample.Seurat, group.by = "condition", reduction = "umap"),
+          DimPlot(AllSample.Seurat, group.by = "sample", reduction = "umap")
+)
+
+```
+
+###1.5.)FindMarkers per Cluster
+
+```{r, }
+Idents(AllSample.Seurat)<-"seurat_clusters"
+AllSample.Seurat.Markers<-FindAllMarkers(object = AllSample.Seurat, assay = "RNA", only.pos = TRUE)
+
+top20<-AllSample.Seurat.Markers %>% group_by(cluster) %>% top_n(3, avg_logFC) %>% arrange(-cluster)
+top20$cluster<-factor(top20$cluster, levels = c(0:nrow(top20)))
+top20<-top20[order(as.numeric(top20$cluster)),]
+```
+
+
+
+```{r, fig.height=12, fig.height=15}
+FeaturePlot(AllSample.Seurat, features = c("Col3a1","Cd14","Vwf","Ccl5", "Trdc","Rgs5"), min.cutoff = 0, max.cutoff = 2)
+
+```
+
+
+
+
+```{r, fig.height=12, fig.height=15}
+FeaturePlot(AllSample.Seurat, features = c("Pecam1","Lyve1","Pdgfrb"), min.cutoff = 0, max.cutoff = 4, pt.size = 2)
+
+```
+
+
+
+
+```{r}
+table(AllSample.Seurat$sample)
+table(AllSample.Seurat$condition)
+
+table(EWAT.CD.seurat$HTO_classification)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 1.2) Define static parameters
+```{r}
+#Static Parameters 
+
+Sample.Paths <- c("/media/Helios_scStorage/Sana-Heidelberg/starsolo/SWAT_CDSolo.out/Gene/filtered/",
+                  "/media/Helios_scStorage/Sana-Heidelberg/starsolo/SWAT_HFDSolo.out/Gene/filtered",
+                  "/media/Helios_scStorage/Sana-Heidelberg/starsolo/EWAT_CDSolo.out/Gene/filtered",
+                  "/media/Helios_scStorage/Sana-Heidelberg/starsolo/EWAT_HFDSolo.out/Gene/filtered"
+)
+Samplenames <- c("SWAT_CD","SWAT_HFD","EWAT_CD","EWAT_HFD")
+```
+
+```{r}
+barcodeLib_Sample<-c("/media/Helios_scStorage/Sana-Heidelberg/cite-seq/SWAT_CD/umi_count",
+                     "/media/Helios_scStorage/Sana-Heidelberg/cite-seq/SWAT_HFD/umi_count",
+                     "/media/Helios_scStorage/Sana-Heidelberg/cite-seq/EWAT_CD/umi_count",
+                     "/media/Helios_scStorage/Sana-Heidelberg/cite-seq/EWAT_HFD/umi_count")
+
+barcodeLib_Samplenames<-c("SWAT_CD_bc","SWAT_HFD_bc","EWAT_CD_bc","EWAT_HFD_bc")
+```
+
+
+```{r}
+#import Barcodes per Sample
+swat.cd.umiCount<-Read10X('/media/Helios_scStorage/Sana-Heidelberg/cite-seq/SWAT_CD/umi_count', gene.column=1)
+swat.hfd.umiCount<-Read10X('/media/Helios_scStorage/Sana-Heidelberg/cite-seq/SWAT_HFD/umi_count', gene.column=1)
+swat.hfd.umiCount<-Read10X('/media/Helios_scStorage/Sana-Heidelberg/cite-seq/EWAT_CD/umi_count', gene.column=1)
+swat.hfd.umiCount<-Read10X('/media/Helios_scStorage/Sana-Heidelberg/cite-seq/EWAT_HFD/umi_count', gene.column=1)
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+UmiMatrixList <- list()
+for (i in 1:length(Sample.Paths)) {
+  UmiMatrixList[[i]]<-Read10X(data.dir = Sample.Paths[i])
+}
+```
+
+#Load Barcodes
+```{r}
+BarcodeMatrix <- list()
+for (i in 1:length(barcodeLib_Sample)) {
+  if (length(barcodeLib_Sample)!=length(Sample.Paths)) {
+    stop("Number of barcodes Paths needs to be equal to the number of Sample Paths")
+  }
+  BarcodeMatrix[[i]]<-Read10X(data.dir = barcodeLib_Sample, gene.column = 1, )
+}
+```
+
+```{r}
+SeuratObjectList<-list()
+barcodeMatricesList<-list()
+
+for (i in 1:length(Sample.Paths)) {
+  joint.bcs <- intersect(colnames(BarcodeMatrix[[i]]), colnames(UmiMatrixList[[i]]))
+  SeuratObjectList[[i]]<-UmiMatrixList[[i]][, joint.bcs]
+  barcodeMatricesList[[i]]<-as.matrix(BarcodeMatrix[[i]][,joint.bcs])
+  
+  
+  SeuratObjectList[[i]]<-CreateSeuratObject(counts = SeuratObjectList[[i]])
+  # Normalize RNA data with log normalization
+  SeuratObjectList[[i]] <- NormalizeData(SeuratObjectList[[i]])
+  # Find and scale variable features
+  SeuratObjectList[[i]] <- FindVariableFeatures(SeuratObjectList[[i]], selection.method = "mean.var.plot")
+  SeuratObjectList[[i]] <- ScaleData(SeuratObjectList[[i]], features = VariableFeatures(ScaleData(SeuratObjectList[[i]])))
+  
+  # Add HTO data as a new assay independent from RNA
+  SeuratObjectList[[i]][["HTO"]] <- CreateAssayObject(counts = barcodeMatricesList[[i]])
+  # Normalize HTO data, here we use centered log-ratio (CLR) transformation
+  SeuratObjectList[[i]] <- NormalizeData(SeuratObjectList[[i]], assay = "HTO", normalization.method = "CLR")
+  SeuratObjectList[[i]] <- HTODemux(SeuratObjectList[[i]], assay = "HTO", positive.quantile = 0.99)
+}
+
+```
+```{r}
+
+```
+
+
+
+#split by Cite-Seq Barcode
+```{r}
+#import barcode matrices
+SeuratObjectListRepeats<-list()
+barcodeMatricesList <- list()
+for (i in 1:length(barcodeLib_Sample)) {
+  if (length(barcodeLib_Sample)!=length(Sample.Paths)) {
+    stop("Number of barcodes Paths needs to be equal to the number of Sample Paths")
+  }
+  barcodeMatricesList[[i]]<-Read10X(data.dir = barcodeLib_Sample, gene.column = 1, )
+  
+  barcodeMatricesList[[i]]<-as.matrix(barcodeMatricesList[[i]][,colnames(SeuratObjectList[[i]]@assays$RNA)]) #remove non-present barcodes
+
+  sampleNumbers<-c()
+  currentColnames<-colnames(SeuratObjectList[[i]]@assays$RNA)
+  #loop over colname ->  find sample with the most hits -> select Samplename
+  for (colname in currentColnames) {
+    currentBc <- barcodeMatricesList[[i]][,colname]
+    sample <- names(which(currentBc==max(currentBc)))
+    sample<-strsplit(sample,"-")[[1]][1]
+    sampleNumbers<-c(sampleNumbers,sample)
+  }
+  cat("Cellnumber for ", Samplenames[[i]])
+  table(sampleNumbers)
+  names(sampleNumbers)<-currentColnames
+  
+  SeuratObjectList[[i]]$sampleNumbers<-sampleNumbers
+  SeuratObjectList[[i]]$orig.ident.repeats<-paste0(SeuratObjectList[[i]]@meta.data$sample, SeuratObjectList[[i]]@meta.data$sampleNumbers,sep="_")
+  Idents(SeuratObjectList[[i]])<-"sampleNumbers"
+ 
+  SeuratObjectListRepeats<-append(SeuratObjectListRepeats,SplitObject(SeuratObjectList[[i]]))
+
+  
+}
+
+```
+
+
+```{r}
+
+for (i in 1:length(SeuratObjectList)) {
+  print(i)
+  tmp<-SeuratObjectList[[i]]
+  tmp<-ScaleData(object = tmp)
+  tmp<-RunPCA(object = tmp, verbose = FALSE, ndims.print = 0)
+  DimHeatmap(object = tmp, dims = 1:15, )
+  gg<-ElbowPlot(tmp, ndims = 15) + labs(title=as.character(i))
+  print(gg)
+}
+```
+
+
+
+```{r}
+SeuratObject.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:20)
+SeuratObject.combined <- IntegrateData(anchorset = SeuratObject.anchors, dims = 1:20)
+```
+```{r}
+DefaultAssay(object = SeuratObject.combined) <- "integrated"
+DefaultAssay(object = SeuratObject.combined) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+SeuratObject.combined <- ScaleData(object = SeuratObject.combined, verbose = FALSE)
+SeuratObject.combined <- RunPCA(object = SeuratObject.combined, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+SeuratObject.combined <- RunUMAP(object = SeuratObject.combined, reduction = "pca", dims = 1:20)
+SeuratObject.combined <- RunTSNE(object = SeuratObject.combined, reduction = "pca", dims = 1:20)
+SeuratObject.combined <- FindNeighbors(object = SeuratObject.combined, reduction = "pca", dims = 1:20)
+SeuratObject.combined <- FindClusters(SeuratObject.combined, resolution = 0.5)
+```
+
+
+```{r}
+SeuratObject.combined<-readRDS("/media/Helios_scStorage/Sana-Heidelberg/Seurat3/SeuratObject.combined.Rds")
+saveRDS(SeuratObject.combined,"/media/Helios_scStorage/Sana-Heidelberg/Seurat3/SeuratObject.combined.Rds")
+
+```
+
+
+```{r}
+#add condition meta data
+table(SeuratObject.combined$orig.ident)
+condition<-c()
+for (ident in SeuratObject.combined@meta.data$orig.ident) {
+  tmp<- substr(ident, 1,nchar(ident)-2)
+  condition<-c(condition,tmp)
+}
+names(condition)<-names(SeuratObject.combined@active.ident)
+SeuratObject.combined$condition<-condition
+```
+
+#plot TSNE's
+```{r, fig.height=10, fig.width=10}
+  DimPlot(object = SeuratObject.combined, label=T, pt.size = 0.1, reduction = "umap")
+  DimPlot(object = SeuratObject.combined, group.by = "orig.ident", pt.size = 0.001, split.by = "condition",  reduction = "umap")
+  DimPlot(object = SeuratObject.combined, group.by = "orig.ident", pt.size = 0.001, reduction = "umap")
+  DimPlot(object = SeuratObject.combined, group.by = "condition", pt.size = 0.001, reduction = "umap")
+
+  DimPlot(object = SeuratObject.combined, group.by = "seurat_clusters", pt.size = 0.001, split.by = "condition",  reduction = "umap")
+
+```
+
+
+```{r}
+DimHeatmap(SeuratObject.combined, dims = 1:5, nfeatures = 50, balanced = TRUE, reduction = "pca", fast = TRUE)
+
+SeuratObject.combined=BuildClusterTree(SeuratObject.combined,reorder = TRUE)
+PlotClusterTree(object = SeuratObject.combined)
+
+```
+
+
+##1.6) Barplot of cell per cluster
+```{r fig.height=10, fig.width=15}
+# Counting celltypes in timepoints
+library(tidyr)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(Seurat)
+V<- SeuratObject.combined@meta.data
+orig.ident.ordered<-str_sort(unique(SeuratObject.combined@meta.data$orig.ident),numeric = TRUE)
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+table(V$seurat_clusters)
+V$seurat_clusters<-factor(V$seurat_clusters,levels = c(0:length(table(V$seurat_clusters))-1))
+
+Summary.Celltypes <- V %>% count(orig.ident,seurat_clusters,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(seurat_clusters,fill = list(n=0,freq=0))
+
+Summary.Celltypes$seurat_clusters <- factor(Summary.Celltypes$seurat_clusters)
+condition<-c()
+for (ident in Summary.Celltypes$orig.ident) {
+  tmp<- substr(ident, 1,2)
+  condition<-c(condition,tmp)
+}
+Summary.Celltypes$condition<-condition
+
+#svg(filename = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/allCells/Barplot-CellsperClusterPerSample.svg",width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= condition))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~seurat_clusters, nrow = 4, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+
+
+ggplot(Summary.Celltypes, aes(x=seurat_clusters, y= freq, fill= condition))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~orig.ident, nrow = 4, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+```
+
+
+
+```{r}
+# Annotation markers
+Idents(SeuratObject.combined)<-SeuratObject.combined$seurat_clusters
+
+
+B.Cell.Annotationmarkers <- c("Cd79a", "Cd79b", "Ms4a1", "Cd19", "Cd72", "Cd40", "Cd22")
+CD4.T.Cell.Annotationmarkers <- c("Ldhb", "Cd3d", "Cd3e", "Cd27", "Cd2", "Cd3g", "Cd7", "Cd69", "Cd4", "Ctla4", "Lck", "Cd28")
+CD.8.T.Cell.Annotationmarkers <- c("Cd8a", "Cd3d", "Cd8b", "Cd3e", "Cd2", "Cd160", "Cd247", "Cd320")
+CD14.Monocytes.Annotationmarkers <- c("Fcn1", "F100a8", "S100a9", "S100a12", "Fcgr1a", "Trem1", "Lgals1", "Cd14", "Cst3", "Ftl")
+Dendritic.Cell.Annotationmarkers <- c("Clec10a", "Clec4c", "Clic2", "Pkib", "Gas6", "Serpinf2", "Lilra4", "Enho", "Pon2", "Phlda2")
+FCGR3A.Monocyte.Annotationmarkers <- c("Hes4", "Cdkn1c", "Ms4a7", "Fcgr3a", "Hmox1")
+General.Monocytes.Annotationmarkers <- c("Fcn1", "S100a8", "S100a9", "S100a12",  "Lgals1", "Cd14", "Cdkn1c", "Ms4a7", "Fcgr3a", "Hmox1")
+Megakaryocyte.Annotationmarkers <- c("Itga2b", "Pf4", "Itgb3")
+NK.cell.Annotationmarkers <- c("Fgfbp2", "Xcl2", "Spon2", "Klrc1",  "Kir3dl1", "Klrd1")
+Neutrophil.Annotation.markers <- c("Elane", "Fut4")
+Collective.markers.annotation <- c("Elane", "Fut4", "Fgfbp2", "Xcl2", "Spon2","Fcgr3a", "Klrc1",  "Kir3dl1", "Klrd1", "Itga2b", "Itgb3", "Cd79a", "Cd79b", "Ms4a1", "Cd19", "Cd72", "Cd40", "Cd22", "Cd8a", "Cd8b", "Ldhb", "Cd3d", "Cd3e", "Cd27", "Cd2", "Cd3g", "Hmox1", "Cdkn1c", "Ms4a7",   "Fcn1", "S100a8", "S100a9", "S100a12",  "Lgals1", "Cd14")
+
+# Visualize expression of markers by cluster (set ident to res.XXXX)
+DotPlot(object = SeuratObject.combined, features = B.Cell.Annotationmarkers, assay = "RNA", )
+DotPlot(object = SeuratObject.combined, features = CD4.T.Cell.Annotationmarkers, assay = "RNA")
+DotPlot(object = SeuratObject.combined, features = CD.8.T.Cell.Annotationmarkers, assay = "RNA")
+DotPlot(object = SeuratObject.combined, features = Collective.markers.annotation, assay = "RNA") + theme(axis.text.x = element_text(angle = -45))
+
+
+
+
+```
+Find Cluster specific Markers
+```{r}
+Idents(SeuratObject.combined)<-SeuratObject.combined$seurat_clusters
+Cluster.Markers <- FindAllMarkers(SeuratObject.combined, assay = "RNA", only.pos = TRUE)
+
+
+```
+```{r, fig.height=8, fig.width=25}
+DefaultAssay(object = SeuratObject.combined) <- "RNA"
+SeuratObject.combined<-ScaleData(SeuratObject.combined)
+Idents(SeuratObject.combined)<-"seurat_clusters"
+top20<-Cluster.Markers %>% group_by(cluster) %>% top_n(3, avg_logFC) %>% arrange(-cluster)
+top20$cluster<-factor(top20$cluster, levels = c(0:nrow(top20)))
+top20<-top20[order(as.numeric(top20$cluster)),]
+DotPlot(SeuratObject.combined, features = unique(top20$gene)) + theme(axis.text.x = element_text(angle = 45, hjust = .8))
+DoHeatmap(object = SeuratObject.combined, features = top20$gene, disp.min = 0)
+```

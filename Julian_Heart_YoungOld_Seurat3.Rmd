@@ -212,7 +212,7 @@ FeaturePlot(Heart.combined, features = c("Pdgfrb", "Cspg4"), min.cutoff = 0, max
 table(Idents(Heart.combined))
 Heart.Pericytes <- subset(Heart.combined, idents = "Pericytes")
 Idents(Heart.Pericytes) <- "condition" 
-
+save()
 DimPlot(Heart.Pericytes, pt.size = 2, reduction = "tsne")
 
 FeaturePlot(Heart.Pericytes, features = c("Cspg4","Notch3","Pdgfrb"), reduction = "tsne", min.cutoff = 0, max.cutoff = 3)
