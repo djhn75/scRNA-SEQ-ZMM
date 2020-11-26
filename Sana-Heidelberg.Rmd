@@ -382,8 +382,18 @@ DimPlot(EWAT.HFD.singlet, group.by = "HTO_classification")
 table(EWAT.CD.singlet@meta.data$HTO_maxID)
 
 save.image("/media/Helios_scStorage/Sana-Heidelberg/cite-seq/workspace.RDATA")
+load("/media/Helios_scStorage/Sana-Heidelberg/cite-seq/workspace.RDATA")
 
 ```
+```{r}
+library(Seurat)
+FeaturePlot(AllSample.Seurat, features = c("Rgs5"), split.by = "condition")
+VlnPlot(AllSample.Seurat, features = c("Rgs5"), split.by = "condition")
+
+```
+
+
+
 
 ###1.4.) Merge and Reclusters Samples
 ```{r}
@@ -485,6 +495,106 @@ table(AllSample.Seurat$condition)
 
 table(EWAT.CD.seurat$HTO_classification)
 ```
+
+
+```{r}
+# Counting celltypes in timepoints
+library(tidyr)
+
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(Seurat)
+library(stringr)
+V<- SeuratObject.combined@meta.data
+orig.ident.ordered<-str_sort(unique(SeuratObject.combined@meta.data$orig.ident),numeric = TRUE)
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$res.0.6<-factor(V$seurat_clusters,levels = c(0:length(unique(SeuratObject.combined@meta.data$seurat_clusters))))
+
+Summary.Celltypes <- V %>% count(orig.ident,res.0.6,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(res.0.6,fill = list(n=0,freq=0))
+
+Summary.Celltypes$res.0.6 <- factor(Summary.Celltypes$res.0.6)
+condition<-c()
+for (x in Summary.Celltypes$orig.ident) {
+  tmp<-unlist(strsplit(x,split = "-"))
+  cx<-paste0(tmp[1:length(tmp)-1],collapse = "-")
+  
+  condition<-c(condition,cx)
+  
+}
+Summary.Celltypes$condition<-condition
+
+ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= orig.ident))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~res.0.6, nrow = 4, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+dev.off()
+
+```
+
+
+
+
+
+
+```{r}
+saveRDS(AllSample.Seurat, file = "/media/Helios_scStorage/Sana-Heidelberg/cite-seq/AllSample.SeuratObject.Rds")
+AllSample.Seurat<-readRDS("/media/Helios_scStorage/Sana-Heidelberg/cite-seq/AllSample.SeuratObject.Rds")
+```
+
+```{r}
+table(AllSample.Seurat$sample)
+table(AllSample.Seurat$condition)
+library(Seurat)
+
+VlnPlot(AllSample.Seurat, features = "Rgs5", group.by = "condition")
+FeaturePlot(AllSample.Seurat, features = "Rgs5", split.by = "condition")
+
+DimPlot(AllSample.Seurat, split.by = "condition")
+AllSample.Seurat$se
+Idents(AllSample.Seurat)<-"seurat_clusters"
+DEG_Cluster0_vs_Cluster1<-FindMarkers(AllSample.Seurat,ident.1 = "0", ident.2 = "1")
+subset(AllSample.Seurat, idents = c("1","2"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -77,8 +77,8 @@ for (i in 1:length(SeuratObjectList)) {
 
 
 ```{r}
-CD31.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:10, k.filter = 150)
-CD31.combined <- IntegrateData(anchorset = CD31.anchors, dims = 1:10)
+Sana.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:10, k.filter = 150)
+Sana.combined <- IntegrateData(anchorset = CD31.anchors, dims = 1:10)
 
 
 ```

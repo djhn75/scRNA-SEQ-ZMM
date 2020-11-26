@@ -1,4 +1,145 @@
 library(Seurat)
+library(dplyr)
+library(tibble)
+library(reshape2)
+require(scales)
+library(ggpubr)
+library(tidyr)
+
+
+#' 
+#' @author David John
+#' @param seuratObject 
+#' @return filtered seurat object
+FilterDeadCellsByQuantile <- function(seuratObject, lowQuantile=0.1 , highQuantile=0.95, maxMito=0.1){
+  # The number of features and UMIs (nFeature_RNA and nCount_RNA) are automatically calculated for every object by Seurat.
+  # For non-UMI data, nCount_RNA represents the sum of the non-normalized values within a cell
+  # We calculate the percentage of mitochondrial features here and store it in object metadata as `percent.mito`.
+  # We use raw count data since this represents non-transformed and non-log-normalized counts
+  # The % of UMI mapping to MT-features is a common scRNA-seq QC metric.
+  sizeBefore<-length(seuratObject@meta.data$orig.ident)
+  cat("FilterByQuantile\n")
+  #For some unknown reasons these variables need to be global for the subset function, otherwise there is an eval() unknown variable error 
+  lowQuantile<<-lowQuantile
+  highQuantile<<-highQuantile
+  maxMito<<-maxMito
+  sample<-unique(seuratObject$sample)
+  Quality <- data.frame(UMI=seuratObject$nCount_RNA, nGene=seuratObject$nFeature_RNA, label = factor(seuratObject$sample), percent.mito=seuratObject$percent.mito)
+  
+  Quantile.low.UMI <- Quality %>% group_by(label) %>%
+    summarise(UMI = list(enframe(quantile(UMI,probs = lowQuantile)))) %>%
+    unnest(cols = c(UMI))
+  
+  Quantile.high.UMI <- Quality %>% group_by(label) %>%
+    summarise(UMI = list(enframe(quantile(UMI,probs = highQuantile)))) %>%
+    unnest(cols = c(UMI))
+  
+  Quantile.low.Gene <- Quality %>% group_by(label) %>%
+    summarise(nGene = list(enframe(quantile(nGene,probs = lowQuantile)))) %>%
+    unnest(cols = c(nGene))
+  
+  Quantile.high.Gene <- Quality %>% group_by(label) %>%
+    summarise(nGene = list(enframe(quantile(nGene,probs = highQuantile)))) %>%
+    unnest(cols = c(nGene))
+  
+  
+  df<-seuratObject@meta.data
+  
+  gg1<- ggplot(Quality, aes(x="nUMI", y=UMI)) + geom_violin(scale = "width") + 
+    theme(axis.title.x = element_blank(),axis.ticks.x = element_blank(), legend.position = "none", axis.text.x = element_text(size=12, face = "bold"), axis.title.y = element_blank(), axis.text.y = element_text(size=10)) + 
+    geom_hline(yintercept = Quantile.high.UMI$value, color="red", linetype="dashed") + geom_text(aes(0.9,Quantile.high.UMI$value, label=Quantile.high.UMI$value , vjust = -1)) + 
+    geom_hline(yintercept = Quantile.low.UMI$value, color="red", linetype="dashed") + geom_text(aes(0.9,Quantile.low.UMI$value, label=Quantile.low.UMI$value , vjust = -1))
+  
+  gg2<- ggplot(Quality, aes(x="nFeature_RNA", y=nGene)) + geom_violin(scale = "width") + 
+    theme(axis.title.x = element_blank(),axis.ticks.x = element_blank(), legend.position = "none", axis.text.x = element_text(size=12, face = "bold"), axis.title.y = element_blank(), axis.text.y = element_text(size=10)) + 
+    geom_hline(yintercept = Quantile.high.Gene$value, color="red", linetype="dashed") + geom_text(aes(0.9,Quantile.high.Gene$value, label=Quantile.high.Gene$value , vjust = -1)) +   geom_hline(yintercept = Quantile.low.Gene$value, color="red", linetype="dashed") + geom_text(aes(0.9,Quantile.low.Gene$value, label=Quantile.low.Gene$value , vjust = -1))
+  
+  
+  gg3<- ggplot(Quality, aes(x=" % Mt Content", y=percent.mito)) + geom_violin(scale = "width") + 
+    theme(axis.title.x = element_blank(),axis.ticks.x = element_blank(), legend.position = "none", axis.text.x = element_text(size=12, face = "bold"), axis.title.y = element_blank(), axis.text.y = element_text(size=10)) + 
+    geom_hline(yintercept = maxMito, color="red", linetype="dashed") + geom_text(aes(0.9,maxMito, label=maxMito , vjust = -1))
+  
+  gg<-ggarrange(gg1,gg2,gg3, ncol = 3)
+  
+  library(ggpubr)  
+  
+  gg<-annotate_figure(gg, fig.lab = sample, fig.lab.pos = "top", fig.lab.size = 15, fig.lab.face = "bold")
+  
+  seuratObject<- subset(x= seuratObject, subset = nCount_RNA < Quantile.high.UMI$value & nCount_RNA > Quantile.low.UMI$value & 
+                          nFeature_RNA < Quantile.high.Gene$value & nFeature_RNA > Quantile.low.Gene$value & percent.mito < maxMito)
+  
+  
+  
+  diff<-  sizeBefore -length(seuratObject@meta.data$orig.ident)
+  cat("Filtered ",diff, "from" , sizeBefore, " cells\n", "(minFeatures=",Quantile.low.Gene$value, "; maxFeatures=", Quantile.high.Gene$value, "; maxMito=" ,maxMito, ") for ", unique(seuratObject$sample), "\n" )
+  rm(maxMito)
+  return(list(seuratObject, gg))
+}
+
+
+
+
+
+#' Import Single cell sequencing experiments into Seurat3and perform normalisation and scale Data 
+#' @author David John
+#' @param pathways A vector of pathways to the cellrancer count output folder (contains barcodes.tsv, genes.tsv, matrix.mtx)
+#' @param ids Vector of strings that are assigned to the concordant cells
+#' @return Merged seurat object
+Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performScaling = FALSE,performVariableGeneDetection=TRUE, FilterCells=TRUE, FilterByAbsoluteValues=FALSE) {
+  if (TenX) {
+    Matrix <- Read10X(pathway)
+  }  else{
+    Matrix <- read.table(pathway,header = TRUE,sep = ",", dec = ".", row.names = 1)
+  }
+  seuratObject =CreateSeuratObject(counts = Matrix, project = id, min.cells = 5)
+  seuratObject$sample <- id
+  tmp<-unlist(strsplit(id,split = "-"))
+  seuratObject$condition <- paste0(tmp[1:length(tmp)-1],collapse = "-")
+  
+  mito.features <- grep(pattern = "^MT-", x = rownames(x = seuratObject), value = TRUE)
+  if (length(mito.features)<10) {
+    mito.features <- grep(pattern = "^mt-", x = rownames(x = seuratObject), value = TRUE)
+  }
+  if (length(mito.features)<10) {
+    stop("Error: Could not find MT genes")
+  }
+  
+  percent.mito <- Matrix::colSums(x = GetAssayData(object = seuratObject, slot = 'counts')[mito.features, ]) / Matrix::colSums(x = GetAssayData(object = seuratObject, slot = 'counts'))
+  seuratObject$percent.mito <- percent.mito
+  
+  #write QC to file
+  svg(paste0(pathway,"QC_preFiltered.svg"))
+  gg_preFiltering<-VlnPlot(object = seuratObject, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3, pt.size = 0,)
+  print(gg_preFiltering)
+  dev.off()
+  cat("start Filtering")
+  if (FilterCells==TRUE) {
+    if (FilterByAbsoluteValues==TRUE) {
+      seuratObject<-FilterDeadCells(seuratObject = seuratObject)
+    }
+    else {
+      tmp<-FilterDeadCellsByQuantile(seuratObject = seuratObject, lowQuantile = 0.1, highQuantile = 0.95)
+      seuratObject<-tmp[[1]]
+      svg(paste0(pathway,"QC_QuantileFiltering.svg"))
+      print(tmp[[2]])
+      dev.off()
+      gg_preFiltering<-tmp[[2]]
+      
+    }
+    
+  }
+  if (performNormalisation==TRUE) {
+    seuratObject<-NormalizeData(object = seuratObject,verbose = FALSE)
+  }
+  if(performVariableGeneDetection==TRUE){
+    seuratObject<-FindVariableFeatures(object = seuratObject, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+  }
+  if (performScaling==TRUE) {
+    seuratObject<-ScaleData(object = seuratObject)
+  }
+  cat("Imported ", length(seuratObject@meta.data$orig.ident), " cells from ", pathway, "with ID ", id, "\n")
+  return(list(seuratObject, gg_preFiltering))
+}
 
 
 #' 
@@ -20,60 +161,10 @@ FilterDeadCells <- function(seuratObject, minFeatures=200, maxFeatures=3000, max
   seuratObject <- subset(x = seuratObject, subset = nFeature_RNA > minFeatures & nFeature_RNA < maxFeatures & percent.mito < maxMito)
   
   diff<-  sizeBefore -length(seuratObject@meta.data$orig.ident)
-  cat("Filtered ",diff, "from" , sizeBefore, " cells\n", "(minFeatures=",minFeatures, "; maxFeatures=", maxFeatures, "; maxMito=" ,maxMito, ")" )
+  cat("Filtered ",diff, "from" , sizeBefore, " cells\n", "(minFeatures=",minFeatures, "; maxFeatures=", maxFeatures, "; maxMito=" ,maxMito, ") for ", unique(seuratObject$sample), "\n" )
   rm(minFeatures,maxFeatures,maxMito)
   return(seuratObject)
 }
-
-#' Import Single cell sequencing experiments into Seurat3and perform normalisation and scale Data 
-#' @author David John
-#' @param pathways A vector of pathways to the cellrancer count output folder (contains barcodes.tsv, genes.tsv, matrix.mtx)
-#' @param ids Vector of strings that are assigned to the concordant cells
-#' @return Merged seurat object
-Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performScaling = FALSE,performVariableGeneDetection=TRUE, FilterCells=TRUE) {
-  if (TenX) {
-    Matrix <- Read10X(pathway)
-  }  else{
-    Matrix <- read.table(pathway,header = TRUE,sep = ",", dec = ".", row.names = 1)
-  }
-  seuratObject =CreateSeuratObject(counts = Matrix, project = id, min.cells = 5)
-  seuratObject$sample <- id
-  tmp<-unlist(strsplit(id,split = "-"))
-  seuratObject$condition <- paste0(tmp[1:length(tmp)-1],collapse = "-")
-  
-  mito.features <- grep(pattern = "^MT-", x = rownames(x = seuratObject), value = TRUE)
-  if (length(mito.features)<10) {
-    mito.features <- grep(pattern = "^mt-", x = rownames(x = seuratObject), value = TRUE)
-  }
-  if (length(mito.features)<10) {
-    stop("Error: Could not find MT genes")
-  }
-  
-  percent.mito <- Matrix::colSums(x = GetAssayData(object = seuratObject, slot = 'counts')[mito.features, ]) / Matrix::colSums(x = GetAssayData(object = seuratObject, slot = 'counts'))
-  seuratObject[['percent.mito']] <- percent.mito
-  
-  #write QC to file
-  svg(paste0(pathway,"QC_preFiltered.svg"))
-  gg<-VlnPlot(object = seuratObject, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3, pt.size = 0,)
-  print(gg)
-  dev.off()
-  
-  if (FilterCells==TRUE) {
-    seuratObject<-FilterDeadCells(seuratObject = seuratObject)
-  }
-  if (performNormalisation==TRUE) {
-    seuratObject<-NormalizeData(object = seuratObject,verbose = FALSE)
-  }
-  if(performVariableGeneDetection==TRUE){
-    seuratObject<-FindVariableFeatures(object = seuratObject, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
-  }
-  if (performScaling==TRUE) {
-    seuratObject<-ScaleData(object = seuratObject)
-  }
-  cat("Imported ", length(seuratObject@meta.data$orig.ident), " cells from ", pathway, "with ID ", id, "\n")
-  return(list(seuratObject, gg))
-}
-
 
 #' Import and combine several Single cell sequencing experiments into Seurat
 #' @author David John

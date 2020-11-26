@@ -1,0 +1,129 @@
+---
+title: "Request from Guillermo Luxan"
+output: html_notebook
+---
+Analyse the Pericytes of Adult human hearts from Healthy and Heart Failure Patients
+
+```{r}
+library(Seurat)
+library(monocle)
+library(ggplot2)
+library(dplyr)
+```
+
+
+
+```{r}
+combined_filtered$celltype<-Idents(combined_filtered)
+
+```
+
+```{r}
+table(combined_filtered$celltype)
+table(Idents(combined_filtered))
+table(combined_filtered$seurat_clusters)
+table(combined_filtered$condition)
+table(combined_filtered$sample)
+```
+
+#Subset Pericytes
+```{r, fig.height=8, fig.width=8}
+DimPlot(combined_filtered, group.by = "celltype", label = T)
+FeaturePlot(combined_filtered, features = c("RGS5","ABCC9","KCUJ8","PDGFRB","CSPG4"), label = T)
+
+
+Pericytes<-subset(combined_filtered, idents="PC")
+```
+
+
+DEGs HF vs CTRL
+```{r}
+Idents(Pericytes)<-"condition"
+head(Idents(Pericytes))
+Pericytes.DEG.H_vs_HFrEF<-FindAllMarkers(Pericytes)
+write.csv2(x = Pericytes.DEG.H_vs_HFrEF, file = "/media/Helios_scStorage/Luka/Human_Healthy_Patients_Endo-Epicardium/Seurat/01_GH2_HFrEF/Pericytes/Pericytes.DEG.H_vs_HFrEF.csv")
+
+```
+```{r, fig.height=8, fig.width=8}
+VlnPlot(Pericytes, features = rownames(Pericytes.DEG.H_vs_HFrEF[1:10,]), pt.size = 0.005)
+VlnPlot(Pericytes, features = rownames(Pericytes.DEG.H_vs_HFrEF[1:10,]), pt.size = 0.005, group.by = "sample")
+
+```
+
+```{r}
+library(monocle)
+
+Data <- Pericytes
+
+data <- as(as.matrix(Data@assays$RNA@data), 'sparseMatrix')
+
+pd <- new('AnnotatedDataFrame', data = Data@meta.data)
+
+fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
+fd <- new('AnnotatedDataFrame', data = fData)
+
+#Construct monocle cds
+Data.Monocle <- newCellDataSet(data,
+                               phenoData = pd,
+                               featureData = fd)
+
+Data.Monocle <- estimateSizeFactors(Data.Monocle)
+Data.Monocle <- estimateDispersions(Data.Monocle)
+print(head(pData(Data.Monocle)))
+Condition <- pData(Data.Monocle)$condition
+pData(Data.Monocle)$condition <- factor(Condition, levels = c("H", "HFrEF"))
+
+
+disp_table <- dispersionTable(Data.Monocle)
+
+Data.Monocle <- detectGenes(Data.Monocle, min_expr = 0.1)
+expressed_genes <- row.names(subset(fData(Data.Monocle), num_cells_expressed >= 10))
+
+
+diff_test_res <- differentialGeneTest(Data.Monocle[expressed_genes,],
+                                      fullModelFormulaStr = "~condition")
+print(head(diff_test_res))
+write.csv2(diff_test_res, file = "/media/Helios_scStorage/Luka/Human_Healthy_Patients_Endo-Epicardium/Seurat/01_GH2_HFrEF/Pericytes/Pericytes.DEG.H_vs_HFrEF.Monocle.csv")
+
+ordering_genes <- row.names(subset(diff_test_res, qval < 0.01))
+
+print(head(ordering_genes))
+
+
+
+Data.Monocle <- setOrderingFilter(Data.Monocle, ordering_genes)
+plot_ordering_genes(Data.Monocle)
+
+Data.Monocle <- reduceDimension(Data.Monocle, max_components = 2,
+                                method = 'DDRTree')
+Data.Monocle <- orderCells(Data.Monocle, reverse = T, )
+
+plot_cell_trajectory(Data.Monocle, color_by = "State", show_state_number = F, show_tree = T) + 
+  facet_wrap(~orig.ident,nrow = 1) + 
+  theme(axis.line = element_line(size = 6), axis.text.x = element_text(size=16, face = "italic"),
+        axis.text.y = element_text(size=18),
+        axis.title = element_text(size=18), legend.position = "top", strip.text = element_text(size=18))
+States <- Data.Monocle@phenoData@data$State
+names(States) <- rownames(Data.Monocle@phenoData@data)
+
+Data <- AddMetaData(Data, States, "State")
+
+Idents(Data) <- "State"
+Marker.states <- FindAllMarkers(Data, test.use = "bimod", only.pos = T, logfc.threshold = 0.1)
+DimPlot(Data, group.by = "State")
+Marker.states <- filter(Marker.states, p_val_adj < 0.05)
+write.csv2(Marker.states, file = "/media/Helios_scStorage/Luka/Human_Healthy_Patients_Endo-Epicardium/Seurat/01_GH2_HFrEF/Pericytes/Pericytes.DEG.H_vs_HFrEF.MarkerStates.Monocle.csv")
+
+```
+```{r}
+plot_genes_in_pseudotime(Data.Monocle[c("RGS5"),])
+VlnPlot(Pericytes, group.by = "orig.ident", features = "RGS5")
+VlnPlot(Pericytes, group.by = "condition", features = "RGS5")
+
+```
+
+
+```{r}
+save.image(file = "/media/Helios_scStorage/Luka/Human_Healthy_Patients_Endo-Epicardium/Seurat/01_GH2_HFrEF/Pericytes/Pericytes.Workspace.RData")
+load("/media/Helios_scStorage/Luka/Human_Healthy_Patients_Endo-Epicardium/Seurat/01_GH2_HFrEF/Pericytes/Pericytes.Workspace.RData")
+```

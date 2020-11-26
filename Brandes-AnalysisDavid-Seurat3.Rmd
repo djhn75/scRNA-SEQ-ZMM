@@ -325,8 +325,227 @@ importCDS_DJ<-function (otherCDS, import_all = FALSE)
 
 #run Monocle trajectories for SMC's
 ```{r}
-importCDS_DJ(otherCDS = SeuratObject.combined@assays$RNA@counts, import_all = TRUE)
+SeuratObject.combined.monocle<-importCDS_DJ(otherCDS = exprs(SeuratObject.combined@assays$RNA@counts, import_all = TRUE))
 importCDS
 ```
+
+
+
+
+
+
+
+# Monocle analysis Whole dataset
+```{r}
+library(monocle)
+
+Data<-SeuratObject.combined
+data <- as(as.matrix(Data@assays$RNA@data), 'sparseMatrix')
+
+pd <- new('AnnotatedDataFrame', data = Data@meta.data)
+
+fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
+fd <- new('AnnotatedDataFrame', data = fData)
+
+#Construct monocle cds
+Data.Monocle <- newCellDataSet(data,
+                               phenoData = pd,
+                               featureData = fd)
+
+Data.Monocle <- estimateSizeFactors(Data.Monocle)
+Data.Monocle <- estimateDispersions(Data.Monocle)
+print(head(pData(Data.Monocle)))
+
+table(Data@meta.data$orig.ident)
+Condition <- pData(Data.Monocle)$orig.ident
+pData(Data.Monocle)$condition <- factor(Condition, levels = c("Day0", "Day3","Day7","Day14"))
+
+
+disp_table <- dispersionTable(Data.Monocle)
+
+Data.Monocle <- detectGenes(Data.Monocle, min_expr = 0.1)
+expressed_genes <- row.names(subset(fData(Data.Monocle), num_cells_expressed >= 10))
+
+
+diff_test_res <- differentialGeneTest(Data.Monocle[expressed_genes,],
+                                      fullModelFormulaStr = "~orig.ident")
+print(head(diff_test_res))
+
+ordering_genes <- row.names(subset(diff_test_res, qval < 0.000001))
+
+print(head(ordering_genes))
+
+Data.Monocle <- setOrderingFilter(Data.Monocle, ordering_genes)
+plot_ordering_genes(Data.Monocle)
+
+Data.Monocle <- reduceDimension(Data.Monocle, max_components = 2,
+                                method = 'DDRTree')
+Data.Monocle <- orderCells(Data.Monocle, reverse = T)
+
+plot_cell_trajectory(Data.Monocle, color_by = "State", show_state_number = F, show_tree = T) +
+  facet_wrap(~condition,nrow = 1) + 
+  theme(axis.line = element_line(size = 6), axis.text.x = element_text(size=16, face = "italic"),
+        axis.text.y = element_text(size=18),
+        axis.title = element_text(size=18), legend.position = "top", strip.text = element_text(size=18))
+
+
+States <- Data.Monocle@phenoData@data$State
+names(States) <- rownames(Data.Monocle@phenoData@data)
+
+Data <- AddMetaData(Data, States, "State")
+
+Idents(Data) <- "State"
+Marker.states <- FindAllMarkers(Data, test.use = "bimod", only.pos = T, logfc.threshold = 0.1)
+
+Marker.states <- filter(Marker.states, p_val_adj < 0.05)
+write.csv2(x = Marker.states, file = "/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/PseudotimeStateGenes.csv")
+
+plot_cell_trajectory(Data.Monocle, color_by = "Pseudotime", cell_size = 1) +
+  scale_color_viridis_c() + facet_wrap(~condition,nrow = 1) 
+
+
+plot_cell_trajectory(Data.Monocle, markers = c("Col1a1", "Cd3d", "Lyz2"), use_color_gradient = TRUE)
+
+
+
+```
+
+
+
+
+Monocle analysis for Cluster "3",'6','13', '11', '8', '10'
+```{r}
+table(Idents(SeuratObject.combined))
+
+Data<-subset(SeuratObject.combined, idents = c("3",'6','13', '11', '8', '10'))
+data <- as(as.matrix(Data@assays$RNA@data), 'sparseMatrix')
+
+pd <- new('AnnotatedDataFrame', data = Data@meta.data)
+
+fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
+fd <- new('AnnotatedDataFrame', data = fData)
+
+#Construct monocle cds
+Data.Monocle <- newCellDataSet(data,
+                               phenoData = pd,
+                               featureData = fd)
+
+Data.Monocle <- estimateSizeFactors(Data.Monocle)
+Data.Monocle <- estimateDispersions(Data.Monocle)
+print(head(pData(Data.Monocle)))
+
+table(Data@meta.data$orig.ident)
+Condition <- pData(Data.Monocle)$orig.ident
+pData(Data.Monocle)$condition <- factor(Condition, levels = c("Day0", "Day3","Day7","Day14"))
+
+
+disp_table <- dispersionTable(Data.Monocle)
+
+Data.Monocle <- detectGenes(Data.Monocle, min_expr = 0.1)
+expressed_genes <- row.names(subset(fData(Data.Monocle), num_cells_expressed >= 10))
+
+
+diff_test_res <- differentialGeneTest(Data.Monocle[expressed_genes,],
+                                      fullModelFormulaStr = "~orig.ident")
+print(head(diff_test_res))
+
+ordering_genes <- row.names(subset(diff_test_res, qval < 0.000001))
+
+print(head(ordering_genes))
+
+Data.Monocle <- setOrderingFilter(Data.Monocle, ordering_genes)
+plot_ordering_genes(Data.Monocle)
+
+Data.Monocle <- reduceDimension(Data.Monocle, max_components = 2,
+                                method = 'DDRTree')
+Data.Monocle <- orderCells(Data.Monocle, reverse = T)
+
+plot_cell_trajectory(Data.Monocle, color_by = "State", show_state_number = F, show_tree = T) +
+  facet_wrap(~condition,nrow = 1) + 
+  theme(axis.line = element_line(size = 6), axis.text.x = element_text(size=16, face = "italic"),
+        axis.text.y = element_text(size=18),
+        axis.title = element_text(size=18), legend.position = "top", strip.text = element_text(size=18))
+
+
+States <- Data.Monocle@phenoData@data$State
+names(States) <- rownames(Data.Monocle@phenoData@data)
+
+Data <- AddMetaData(Data, States, "State")
+
+Idents(Data) <- "State"
+Marker.states <- FindAllMarkers(Data, test.use = "bimod", only.pos = T, logfc.threshold = 0.1)
+
+Marker.states <- filter(Marker.states, p_val_adj < 0.05)
+write.csv2(x = Marker.states, file = "/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/PseudotimeStateGenes.csv")
+
+plot_cell_trajectory(Data.Monocle, color_by = "Pseudotime", cell_size = 1) +
+  scale_color_viridis_c() + facet_wrap(~condition,nrow = 1) 
+
+
+plot_cell_trajectory(Data.Monocle, markers = c("Col1a1", "Cd3d", "Lyz2"), use_color_gradient = TRUE)
+plot_cell_trajectory(Data.Monocle, markers = c("Acta2", "Myh11", "Cnn1", "Myl6"), use_color_gradient = TRUE)
+
+
+```
+#Find state specific Markers
+```{r}
+my_pseudotime_de <- differentialGeneTest(Data.Monocle, fullModelFormulaStr = "~sm.ns(Pseudotime)", cores = 8)
+my_pseudotime_de %>% arrange(qval) %>% head()
+my_pseudotime_de$id<-rownames(my_pseudotime_de)
+my_pseudotime_de %>% arrange(qval) %>% head() %>% select(id) -> my_pseudotime_gene
+my_pseudotime_gene <- my_pseudotime_gene$id
+my_pseudotime_de %>% arrange(qval) -> my_pseudotime_de
+```
+
+```{r}
+plot_genes_in_pseudotime(Data.Monocle[c("Acta2", "Myh11", "Cnn1", "Myl6"),])
+plot_genes_in_pseudotime(Data.Monocle[my_pseudotime_gene,])
+```
+
+
+```{r}
+my_branched_heatmap <- plot_genes_branched_heatmap(Data.Monocle[row.names(my_pseudotime_de[1:40,]),],
+                                                   branch_point = 1,
+                                                   num_clusters = 4,
+                                                   cores = 8,
+                                                   use_gene_short_name = TRUE,
+                                                   show_rownames = TRUE,
+                                                   return_heatmap = TRUE)
+
+
+my_branched_heatmap <- plot_genes_branched_heatmap(Data.Monocle[row.names(my_pseudotime_de[1:40,]),],
+                                                   cores = 8,
+                                                   use_gene_short_name = TRUE,
+                                                   show_rownames = TRUE,
+                                                   return_heatmap = TRUE)
+
+```
+
+
+```{r}
+options(repr.plot.width=8, repr.plot.height=12)
+plot_multiple_branches_heatmap(Data.Monocle[c(positive_score_genes, negtive_score_genes),],
+                               branches=c(1, 3, 4, 6, 11, 9),
+                               branches_name=c("Neu", "DC", "Baso", "Mono", "MK", "Ery"),
+                               show_rownames=T,
+                               num_clusters=4)
+```
+
+
+
+#save workspace
+```{r}
+save.image("/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/Brandes.RData")
+load("/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/Brandes.RData")
+
+```
+
+
+
+
+
+
+
+
 
 
