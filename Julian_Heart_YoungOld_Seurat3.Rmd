@@ -373,7 +373,9 @@ unique()
 ```{r}
 save.image("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/Workspace.RData")
 load("/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/Workspace.RData")
-      ```
+```
+
+
 
 ```{r}
 table(Heart.combined@meta.data$seurat_clusters)
@@ -420,4 +422,52 @@ plot_cells(Heart.combined.monocle, label_groups_by_cluster=FALSE,  color_cells_b
 plot_cells(Heart.combined.monocle, color_cells_by = "partition", label_groups_by_cluster=FALSE, label_leaves=FALSE,label_branch_points=FALSE)
 plot_cells(Heart.combined.monocle, label_groups_by_cluster=FALSE,  color_cells_by = "celltype", label_cell_groups = TRUE, group_label_size = 8)
 ```
+
+
+#Request Julian 26.11.20 Plot
+##Plot Gal, Galr1 Galr2
+```{r}
+library(Seurat)
+VlnPlot(Heart.combined,features = c("Gal","Galr1","Galr2"), group.by = "orig.ident")
+tmp<-data.frame(gene=rownames(Heart.combined@assays$RNA))
+```
+
+```{r}
+VlnPlot(Heart.combined,features = c("Notch1","Npdc1","Tia1","Spata13"), group.by = "orig.ident", pt.size = 0.01)
+FeaturePlot(Heart.combined,features = c("Notch1","Npdc1","Tia1","Spata13"), split.by  = "condition", pt.size = 0.01)
+
+tmp<-data.frame(gene=rownames(Heart.combined@assays$RNA))
+
+
+
+table(Heart.combined$celltypes)
+
+Heart.ECs<-subset(Heart.combined, idents = "ECs")
+VlnPlot(Heart.ECs,features = c("Notch1","Npdc1","Tia1","Spata13"), group.by = "orig.ident", pt.size = 0.01)
+FeaturePlot(Heart.ECs,features = c("Notch1","Npdc1","Tia1","Spata13"), split.by  = "condition", pt.size = 0.01)
+
+VlnPlot(Heart.combined,features = c("Notch4"), group.by = "orig.ident", pt.size = 0.01)
+FeaturePlot(Heart.combined,features = c("Notch4"), split.by  = "condition", pt.size = 0.01, min.cutoff = 0, max.cutoff = 2, label = T, label.size = 5)
+
+VlnPlot(Heart.ECs,features = c("Notch4"), group.by = "orig.ident", pt.size = 0.01)
+FeaturePlot(Heart.ECs,features = c("Notch4"), split.by  = "condition", pt.size = 0.01, label = T, label.size = 5, min.cutoff = 0, max.cutoff = 2)
+
+Idents(Heart.ECs)<-"condition"
+Heart.ECs.DEG.YoungOld<-FindAllMarkers(Heart.ECs)
+
+Idents(Heart.ECs)<-"orig.ident"
+
+Heart.ECs.mean<-AverageExpression(Heart.ECs, features = c("Notch4","Notch1","Npdc1","Tia1","Spata13"), assays = "RNA")
+tmp<-Heart.ECs.mean$RNA
+write.csv2(tmp, file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/RequestSimone27.11.20/MeanExpression_TargetGenes.csv")
+
+Notch4 
+PSMA3-AS1 und POLR2J3.1 sind lncRNAs.. muriner Name?!
+Golga2
+```
+#Request Philip Grote 17.12.20
+```{r}
+FeaturePlot(Heart.combined, features = c("Fsd2","2900076A07Rik"), label = T, label.size = 3)
+```
+
 

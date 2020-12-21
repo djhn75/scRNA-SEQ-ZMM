@@ -1,0 +1,655 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+## 1.1) Import packages
+```{r message=FALSE}
+#load libraries
+library(dplyr)
+library(ggpubr)
+library(Seurat)
+require(scales)
+library(tidyr)
+library(monocle)
+
+
+source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
+outputFolder<-"/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285//Seurat3/"
+sink(file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/Seurat3/Cremer_Macrophages_MI_David-Seurat3.rmd.log", append = TRUE, split = TRUE)
+```
+
+```{r}
+# Quick load
+load("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285//Seurat3/Cremer_Macrophages_MI_David-Seurat3.RData")
+```
+
+## 1.2) Define static parameters
+```{r}
+#Static Parameters 
+
+Sample.Paths <- c("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/starsolo/104285-001-001Solo.out/Gene/filtered/",
+                  "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/starsolo/104285-001-002Solo.out/Gene/filtered/",
+                  "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/starsolo/104285-001-003Solo.out/Gene/filtered/",
+                  "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/starsolo/104285-001-004Solo.out/Gene/filtered/",
+                  "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/starsolo/104285-001-005Solo.out/Gene/filtered/",
+                  "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/starsolo/104285-001-006Solo.out/Gene/filtered/",
+                  "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/starsolo/104285-001-007Solo.out/Gene/filtered/",
+                  "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/starsolo/104285-001-008Solo.out/Gene/filtered/")
+
+Samplenames <- c("CO-1","92a-1","92a-2","92a-3","CO-2","92a-4","CO-3","CO-4")
+```
+
+
+
+```{r}
+tmpList<-list()
+SeuratObjectList <- list()
+for (i in 1:length(Sample.Paths)) {
+  tmpList<-Importer(pathway = Sample.Paths[i],id = Samplenames[i], FilterCells = TRUE)
+  print(tmpList[[2]])
+  SeuratObjectList[[i]]<-tmpList[[1]]
+}
+```
+
+
+
+```{r}
+SeuratObject.anchors <- FindIntegrationAnchors(object.list = SeuratObjectList, dims = 1:20)
+SeuratObject.combined <- IntegrateData(anchorset = SeuratObject.anchors, dims = 1:20)
+```
+#INTEGRATED
+```{r}
+DefaultAssay(object = SeuratObject.combined) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+SeuratObject.combined <- ScaleData(object = SeuratObject.combined, verbose = FALSE)
+SeuratObject.combined <- RunPCA(object = SeuratObject.combined, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+SeuratObject.combined <- RunUMAP(object = SeuratObject.combined, reduction = "pca", dims = 1:20)
+SeuratObject.combined <- FindNeighbors(object = SeuratObject.combined, reduction = "pca", dims = 1:20)
+SeuratObject.combined <- FindClusters(SeuratObject.combined, resolution = 0.5)
+```
+
+
+```{r}
+SeuratObject.combined_ClusterTree<-BuildClusterTree(object = SeuratObject.combined, assay = "RNA", verbose = T)
+PlotClusterTree(SeuratObject.combined_ClusterTree)
+
+
+```
+
+
+####All Samples combined
+```{r fig.height=10, fig.width=20}
+require(cowplot)
+# Visualization
+p1<-DimPlot(object = SeuratObject.combined, reduction = "umap", group.by = "orig.ident",pt.size = 1)
+p2<-DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE,pt.size = 1, label.size = 9)
+#p3<-DimPlot(object = SeuratObject.combined, reduction = "umap", group.by = "sample",pt.size = 2)
+plot_grid(p1,p2)
+
+DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE, split.by = "orig.ident")
+Idents(SeuratObject.combined)<-"seurat_clusters"
+DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE, split.by = "condition", label.size = 8, pt.size = 1)
+
+```
+
+
+Find Cluster specific Markers
+```{r}
+SeuratObject.combined.markers <- FindAllMarkers(object = SeuratObject.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+write.csv(top20, file = paste0(outputFolder,"top20ClusterMarkers.csv"))
+write.csv(SeuratObject.combined.markers, file = paste0(outputFolder,"ClusterMarkers.csv"))
+```
+```{r}
+#top2<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+
+VlnPlot(SeuratObject.combined, features = c("Ly6c2"))
+FeaturePlot(SeuratObject.combined, features = c("Ly6c2"), label = TRUE)
+```
+
+```{r}
+VlnPlot(object = SeuratObject.combined, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3, pt.size = 0,)
+FeaturePlot(SeuratObject.combined, features = "Ptprc")
+```
+
+
+
+
+```{r}
+Idents(SeuratObject.combined)<-"condition"
+DEG_MI_NoMi<-FindMarkers(SeuratObject.combined, ident.1 = "MI-D3", ident.2 = "NO-MI")
+```
+
+```{r}
+top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 3, wt = avg_logFC)
+DotPlot(SeuratObject.combined, features = unique(top20$gene)) + theme(axis.text.x = element_text(angle = 90))
+```
+
+
+
+
+```{r}
+table(subset(SeuratObject.combined.markers, cluster==c(1,2,5))$gene)
+tmp<-data.frame(table(subset(SeuratObject.combined.markers, cluster==c(1,2,5))$gene))
+```
+
+```{r, fig.width=18}
+VlnPlot(SeuratObject.combined, features = c("Cd7","S100a9","S100a8")) #Neutrophils
+VlnPlot(SeuratObject.combined, features = c("Ly6c2","Plac8","Clec4e","F10")) #Monocytes
+VlnPlot(SeuratObject.combined, features = c("Cd79a","Cd79b","Mzb1","Tppp3","Cd9","S100a6","Fcer2a", "Fcer2a")) #B-Cells
+VlnPlot(SeuratObject.combined, features = c("Nkg7","Klre1","Klra7","S100a6","Klrk1","Gzmb")) #NK
+VlnPlot(SeuratObject.combined, features = c("Tcf7","Rag1","Ccr9","Ltb4r1","Sell","Lef1","Tnfrsf18","Cd134","Cd8a","Cd8b1", "Cd3g")) #T-Cells
+VlnPlot(SeuratObject.combined, features = c("Ccl8","F13a1","Il1b","Ccl4","Cd9","Isg15","Irf7","Fn1")) #Macrophages
+VlnPlot(SeuratObject.combined, features = c("Cd209a","Ifitm1","Ccr7","Fscn1","Pla2g2d","Vcam1", "CD74", "Cd209a")) #DC
+
+
+FeaturePlot(SeuratObject.combined, features = c("Cd209a","Ifitm1","Ccr7","Fscn1","Pla2g2d","Vcam1", "Cd74", "Cd209a"), label=T) #DC
+
+
+tmp<-data.frame(Gene=rownames(SeuratObject.combined@assays$RNA))
+
+
+```
+
+
+
+
+#Rename Idents
+```{r}
+Idents(SeuratObject.combined)<-"seurat_clusters"
+table(Idents(SeuratObject.combined))
+SeuratObject.combined <- RenameIdents(SeuratObject.combined, 
+                                      `0` = "LowQC", 
+                                      `1` = "Recruited Macrophages", 
+                                      `2` = "Resident Macrophages(Lyve1+)", 
+                                      `3` = "Resident Macrophages(Lyve1- MHC-II+)", 
+                                      `4` = "Neutrophils", 
+                                      `5` = "B-Cells", 
+                                      `6` = "B-Cells", 
+                                      `7` = "T-Cells", 
+                                      `8` = "Monocytes",
+                                      `9` = "T-Cells",
+                                      `10` = "T-Cells", 
+                                      `11` = "Dendritic-Cells", 
+                                      `12` = "Neutrophils", 
+                                      `13` = "Dendritic-Cells2?",
+                                      `14` = "NK", 
+                                      `15` = "Monocytes", 
+                                      `16` = "Unknown/LowQC", 
+                                      `17` = "Innate Lymphoid-Cells",
+                                      `18` = "Unknown", 
+                                      `19` = "Mast-Cell", 
+                                      `20` = "Fibroblasts/LowQC", 
+                                      `21` = "Neutrophils" )
+
+
+SeuratObject.combined$celltypes<-Idents(SeuratObject.combined)
+
+DimPlot(SeuratObject.combined, label = T)
+```
+
+
+
+## 3.1.6) Barplot of cell per cluster
+```{r fig.height=10, fig.width=15}
+# Counting celltypes in timepoints
+library(tidyr)
+
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(Seurat)
+library(stringr)
+V<- SeuratObject.combined@meta.data
+orig.ident.ordered<-str_sort(unique(SeuratObject.combined@meta.data$orig.ident),numeric = TRUE)
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$res.0.6<-factor(V$celltypes)
+
+Summary.Celltypes <- V %>% count(orig.ident,res.0.6,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(res.0.6,fill = list(n=0,freq=0))
+
+Summary.Celltypes$res.0.6 <- factor(Summary.Celltypes$res.0.6)
+condition<-c()
+for (x in Summary.Celltypes$orig.ident) {
+  tmp<-unlist(strsplit(x,split = "-"))
+  cx<-paste0(tmp[1:length(tmp)-1],collapse = "-")
+  
+  condition<-c(condition,cx)
+  
+}
+Summary.Celltypes$condition<-condition
+
+svg(filename = paste0(outputFolder,"/Barplot-CellsperClusterPerSample.svg"),width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= condition))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~res.0.6, nrow = 4, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(),
+        strip.text = element_text(size=12),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 10))
+dev.off()
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+table(SeuratObject.combined$condition)
+#names(SeuratObject.combined$condition)
+```
+
+
+
+
+#DEG Ctrl vs HFpEF
+```{r}
+Idents(SeuratObject.combined)<-"condition"
+#Idents(SeuratObject.combined)<-"seurat_clusters"
+table(Idents(SeuratObject.combined))
+DEG_MI_vs_noMi<-FindMarkers(SeuratObject.combined, ident.1 = "MI-D3", ident.2 = "NO-MI")
+write.csv2(DEG_MI_vs_noMi, file = paste0(outputFolder,"DEG_MI_vs_noMi.csv"))
+#FeaturePlot(SeuratObject.combined, features = rownames(DEG_Ctrl_vs_HFrEF)[1], split.by = "condition")
+
+```
+
+
+
+Monocle analysis
+```{r}
+library(monocle)
+table(Idents(SeuratObject.combined))
+
+Data<-SeuratObject.combined
+data <- as(as.matrix(Data@assays$RNA@data), 'sparseMatrix')
+
+pd <- new('AnnotatedDataFrame', data = Data@meta.data)
+
+fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
+fd <- new('AnnotatedDataFrame', data = fData)
+
+#Construct monocle cds
+Data.Monocle <- newCellDataSet(data,
+                               phenoData = pd,
+                               featureData = fd)
+
+Data.Monocle <- estimateSizeFactors(Data.Monocle)
+Data.Monocle <- estimateDispersions(Data.Monocle)
+print(head(pData(Data.Monocle)))
+
+table(Data@meta.data$condition)
+Condition <- pData(Data.Monocle)$condition
+pData(Data.Monocle)$condition <- factor(Condition, levels = c("Ctrl", "HFpEF"))
+
+
+disp_table <- dispersionTable(Data.Monocle)
+
+Data.Monocle <- detectGenes(Data.Monocle, min_expr = 0.1)
+expressed_genes <- row.names(subset(fData(Data.Monocle), num_cells_expressed >= 10))
+
+
+diff_test_res <- differentialGeneTest(Data.Monocle[expressed_genes,],
+                                      fullModelFormulaStr = "~condition")
+print(head(diff_test_res))
+
+
+ordering_genes <- row.names(subset(diff_test_res, qval < 0.00000001))
+
+print(head(ordering_genes))
+
+Data.Monocle <- setOrderingFilter(Data.Monocle, ordering_genes)
+plot_ordering_genes(Data.Monocle)
+
+Data.Monocle <- reduceDimension(Data.Monocle, max_components = 2,
+                                method = 'DDRTree')
+Data.Monocle <- orderCells(Data.Monocle, reverse = T)
+
+plot_cell_trajectory(Data.Monocle, color_by = "State", show_state_number = F, show_tree = T) +
+  facet_wrap(~condition,nrow = 1) + 
+  theme(axis.line = element_line(size = 6), axis.text.x = element_text(size=16, face = "italic"),
+        axis.text.y = element_text(size=18),
+        axis.title = element_text(size=18), legend.position = "top", strip.text = element_text(size=18))
+
+
+States <- Data.Monocle@phenoData@data$State
+names(States) <- rownames(Data.Monocle@phenoData@data)
+
+Data <- AddMetaData(Data, States, "State")
+
+Idents(Data) <- "State"
+Marker.states <- FindAllMarkers(Data, test.use = "bimod", only.pos = T, logfc.threshold = 0.1)
+
+Marker.states <- filter(Marker.states, p_val_adj < 0.05)
+write.csv2(x = Marker.states, file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/Seurat3/PseudotimeStateGenes.csv")
+
+plot_cell_trajectory(Data.Monocle, color_by = "Pseudotime", cell_size = 1) +
+  scale_color_viridis_c() + facet_wrap(~condition,nrow = 1) 
+
+
+plot_cell_trajectory(Data.Monocle, markers = c("Col1a1", "Cd3d", "Lyz2"), use_color_gradient = TRUE)
+plot_cell_trajectory(Data.Monocle, markers = c("Acta2", "Myh11", "Cnn1", "Myl6"), use_color_gradient = TRUE)
+
+
+```
+#Find state specific Markers
+```{r}
+my_pseudotime_de <- differentialGeneTest(Data.Monocle, fullModelFormulaStr = "~sm.ns(Pseudotime)", cores = 8)
+my_pseudotime_de %>% arrange(qval) %>% head()
+my_pseudotime_de$id<-rownames(my_pseudotime_de)
+my_pseudotime_de %>% arrange(qval) %>% head() %>% select(id) -> my_pseudotime_gene
+my_pseudotime_gene <- my_pseudotime_gene$id
+my_pseudotime_de %>% arrange(qval) -> my_pseudotime_de
+```
+
+```{r}
+plot_genes_in_pseudotime(Data.Monocle[c("Cd55"),])
+
+plot_genes_in_pseudotime(Data.Monocle[my_pseudotime_gene,])
+
+```
+
+
+```{r}
+options(repr.plot.width=8, repr.plot.height=12)
+plot_multiple_branches_heatmap(Data.Monocle[c(positive_score_genes, negtive_score_genes),],
+                               branches=c(1, 3, 4, 6, 11, 9),
+                               branches_name=c("Neu", "DC", "Baso", "Mono", "MK", "Ery"),
+                               show_rownames=T,
+                               num_clusters=4)
+```
+
+
+
+```{r}
+table(SeuratObject.combined$celltypes)
+```
+
+#Marcophages
+```{r}
+#All Macrophages
+Idents(SeuratObject.combined)<-"celltypes"
+Macrophages<- subset(SeuratObject.combined, idents=c("Recruited Macrophages","Resident Macrophages(Lyve1+)","Resident Macrophages(Lyve1- MHC-II+)"))
+table(SeuratObject.combined$condition)
+Idents(Macrophages)<-"condition"
+Macrophages_DEG_CTRL_vs_HFrEF<-FindAllMarkers(Macrophages, only.pos = T)
+write.csv(Macrophages_DEG_CTRL_vs_HFrEF, file = paste0(outputFolder,"DEG_Macrophages_CTRL_vs_HFrEF.csv"))
+
+Idents(Macrophages)<-"celltypes"
+FeaturePlot(Macrophages,features = c("Plin2","Lpl","Angptl4","Trem2"), label = T)
+VlnPlot(Macrophages,features = c("Plin2","Lpl","Angptl4","Trem2"), split.by = "condition", pt.size = 0)
+VlnPlot(Macrophages,features = c("Plin2"), split.by = "condition", pt.size = 0)
+
+#Recluster all macrophages
+DefaultAssay(object = Macrophages) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+Macrophages <- ScaleData(object = Macrophages, verbose = FALSE)
+Macrophages<-FindVariableFeatures(Macrophages)
+Macrophages <- RunPCA(object = Macrophages, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+Macrophages <- RunUMAP(object = Macrophages, reduction = "pca", dims = 1:20)
+Macrophages <- FindNeighbors(object = Macrophages, reduction = "pca", dims = 1:20)
+Macrophages <- FindClusters(Macrophages, resolution = 0.2)
+
+Macrophages.markers <- FindAllMarkers(object = Macrophages, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+top20_Macrophages<-Macrophages.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+write.csv(top20, file = paste0(outputFolder,"top20ClusterMarkers_Macrophages.csv"))
+write.csv(SeuratObject.combined.markers, file = paste0(outputFolder,"ClusterMarkers_Macrophages.csv"))
+
+DimPlot(Macrophages, split.by = "orig.ident")
+
+
+#Recruted Macrophages
+RecrutedMacrophages<- subset(SeuratObject.combined, idents=c("Recruted Macrophages"))
+Idents(RecrutedMacrophages)<-"condition"
+RecrutedMacrophages.DEG_CTRL_vs_HFrEF<-FindAllMarkers(RecrutedMacrophages, only.pos = T)
+write.csv(RecrutedMacrophages.DEG_CTRL_vs_HFrEF, file = paste0(outputFolder,"DEG_RecrutedMacrophages_CTRL_vs_HFrEF.csv"))
+
+#Resident Macrophages1
+ResidentMacrophages_Lyve1Pos<- subset(SeuratObject.combined, idents=c("Resident Macrophages(Lyve1+)"))
+Idents(ResidentMacrophages_Lyve1Pos)<-"condition"
+ResidentMacrophages_Lyve1Pos.DEG_CTRL_vs_HFrEF<-FindAllMarkers(ResidentMacrophages_Lyve1Pos, only.pos = T)
+write.csv(ResidentMacrophages_Lyve1Pos.DEG_CTRL_vs_HFrEF, file = paste0(outputFolder,"DEG_Resident Macrophages(Lyve1+)_CTRL_vs_HFrEF.csv"))
+
+#Resident Macrophages(Lyve1- MHC-II+)
+ResidentMacrophages_Lyve1Neg<- subset(SeuratObject.combined, idents=c("Resident Macrophages(Lyve1- MHC-II+)"))
+Idents(ResidentMacrophages_Lyve1Neg)<-"condition"
+ResidentMacrophages_Lyve1Neg.DEG_CTRL_vs_HFrEF<-FindAllMarkers(ResidentMacrophages_Lyve1Neg, only.pos = T)
+write.csv(ResidentMacrophages_Lyve1Neg.DEG_CTRL_vs_HFrEF, file = paste0(outputFolder,"DEG_Resident Macrophages(Lyve1-_MHC-II+)_CTRL_vs_HFrEF.csv"))
+
+
+
+V<- Macrophages@meta.data
+orig.ident.ordered<-str_sort(unique(Macrophages@meta.data$orig.ident),numeric = TRUE)
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$res.0.6<-factor(V$celltypes,levels = unique(Macrophages@meta.data$celltypes))
+
+Summary.Celltypes <- V %>% count(orig.ident,res.0.6,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(res.0.6,fill = list(n=0,freq=0))
+
+Summary.Celltypes$res.0.6 <- factor(Summary.Celltypes$res.0.6)
+condition<-c()
+for (x in Summary.Celltypes$orig.ident) {
+  tmp<-unlist(strsplit(x,split = "-"))
+  cx<-paste0(tmp[1:length(tmp)-1],collapse = "-")
+  condition<-c(condition,cx)
+}
+
+Summary.Celltypes$condition<-condition
+
+svg(filename = paste0(outputFolder,"/Barplot.Marcrophages-CellsperClusterPerSample.svg"),width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= orig.ident))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~res.0.6, nrow = 4, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+dev.off()
+```
+
+ 
+ #Monocytes
+```{r}
+Idents(SeuratObject.combined)<-"celltypes"
+Monocytes<- subset(SeuratObject.combined, idents=c("Monocytes"))
+table(SeuratObject.combined$condition)
+Idents(Monocytes)<-"condition"
+Monocytes_DEG_CTRL_vs_HFrEF<-FindAllMarkers(Monocytes, only.pos = T)
+write.csv(Monocytes_DEG_CTRL_vs_HFrEF, file = paste0(outputFolder,"DEG_Monocytes_CTRL_vs_HFrEF.csv"))
+
+table(Monocytes$celltypes)
+
+
+
+V<- Monocytes@meta.data
+orig.ident.ordered<-str_sort(unique(Monocytes@meta.data$orig.ident),numeric = TRUE)
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$res.0.6<-factor(V$celltypes,levels = unique(Monocytes@meta.data$celltypes))
+
+Summary.Celltypes <- V %>% count(orig.ident,res.0.6,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(res.0.6,fill = list(n=0,freq=0))
+
+Summary.Celltypes$res.0.6 <- factor(Summary.Celltypes$res.0.6)
+condition<-c()
+for (x in Summary.Celltypes$orig.ident) {
+  tmp<-unlist(strsplit(x,split = "-"))
+  cx<-paste0(tmp[1:length(tmp)-1],collapse = "-")
+  condition<-c(condition,cx)
+}
+
+Summary.Celltypes$condition<-condition
+
+svg(filename = paste0(outputFolder,"/Barplot.Monocytes-CellsperClusterPerSample.svg"),width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= orig.ident))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~res.0.6, nrow = 4, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+dev.off()
+```
+ 
+ 
+ 
+#Neutrophils
+```{r}
+Idents(SeuratObject.combined)<-"celltypes"
+Neutrophils<- subset(SeuratObject.combined, idents=c("Neutrophils"))
+table(SeuratObject.combined$celltypes)
+Idents(Neutrophils)<-"condition"
+Neutrophils_DEG_CTRL_vs_HFrEF<-FindAllMarkers(Neutrophils, only.pos = T)
+write.csv(Neutrophils_DEG_CTRL_vs_HFrEF, file = paste0(outputFolder,"DEG_Neutrophils_CTRL_vs_HFrEF.csv"))
+
+table(Neutrophils$celltypes)
+
+
+
+V<- Neutrophils@meta.data
+orig.ident.ordered<-str_sort(unique(Neutrophils@meta.data$orig.ident),numeric = TRUE)
+V$orig.ident<-factor(V$orig.ident,levels = orig.ident.ordered)
+V$res.0.6<-factor(V$celltypes,levels = unique(Neutrophils@meta.data$celltypes))
+
+Summary.Celltypes <- V %>% count(orig.ident,res.0.6,.drop = FALSE) %>% group_by(orig.ident) %>%
+  mutate(freq = n /sum(n)) %>% complete(res.0.6,fill = list(n=0,freq=0))
+
+Summary.Celltypes$res.0.6 <- factor(Summary.Celltypes$res.0.6)
+condition<-c()
+for (x in Summary.Celltypes$orig.ident) {
+  tmp<-unlist(strsplit(x,split = "-"))
+  cx<-paste0(tmp[1:length(tmp)-1],collapse = "-")
+  condition<-c(condition,cx)
+}
+
+Summary.Celltypes$condition<-condition
+
+svg(filename = paste0(outputFolder,"/Barplot.Neutrophils-CellsperClusterPerSample.svg"),width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= orig.ident))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~res.0.6, nrow = 4, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+dev.off()
+
+VlnPlot(Neutrophils,features = c("Vim"))
+
+VlnPlot(Neutrophils,features = c("Vim"), group.by = "orig.ident")
+```
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+#Plots for Sebastian 27.10.20
+```{r}
+FeaturePlot(object = SeuratObject.combined, features = c("Ptprc","Ly6c2"), label = T, label.size = 5, max.cutoff = 3)
+FeaturePlot(object = SeuratObject.combined, features = c("Lyve1","Ccr2"), label = T, label.size = 5)
+FeaturePlot(object = SeuratObject.combined, features = c("Cd79a"), label = T, label.size = 5)
+
+Idents(SeuratObject.combined)<-"seurat_clusters"
+FeaturePlot(object = SeuratObject.combined, features = c("Ptprc","Ly6c2","Lyve1","Ccr2","Cd79a"), label = T, label.size = 5, max.cutoff = 3, min.cutoff = 0)
+Idents(SeuratObject.combined)<-"celltypes"
+FeaturePlot(object = SeuratObject.combined, features = c("Ptprc","Ly6c2","Lyve1","Ccr2","Cd79a"), label = T, label.size = 5, max.cutoff = 3, min.cutoff = 0)
+
+
+FeaturePlot(object = SeuratObject.combined, features = c("S100a8","S100a9","Il1b","Nlrp3"), label = T, label.size = 3, split.by = "condition")
+VlnPlot(object = SeuratObject.combined, features = c("S100a8","S100a9","Il1b","Nlrp3"), split.by = "condition", pt.size = 0)
+
+FeaturePlot(object = Neutrophils, features = c("S100a8","S100a9","Il1b","Nlrp3"), label = T, label.size = 3, split.by = "condition")
+VlnPlot(object = Neutrophils, features = c("S100a8","S100a9","Il1b","Nlrp3"), split.by = "condition", pt.size = 0)
+
+
+FeaturePlot(object = SeuratObject.combined, features = c("Trem2", "Plin2","Lpl", "Ccr2"), label = T, label.size = 3, split.by = "condition")
+VlnPlot(object = SeuratObject.combined, features = c("Trem2", "Plin2","Lpl", "Ccr2"), split.by = "condition", pt.size = 0)
+
+FeaturePlot(object = Macrophages, features = c("Trem2", "Plin2","Lpl", "Ccr2"), label = T, label.size = 3, split.by = "condition")
+VlnPlot(object = Macrophages, features = c("Trem2", "Plin2","Lpl", "Ccr2"), split.by = "condition", pt.size = 0)
+VlnPlot(object = Macrophages, features = c("Trem2", "Plin2","Lpl", "Ccr2"), split.by = "condition", pt.size = 0, group.by = "orig.ident")
+
+
+VlnPlot(object = SeuratObject.combined, features = c("Ptprc","Ly6c2","Lyve1","Ccr2","Cd79a"))
+
+FeaturePlot(object = SeuratObject.combined, features = c("Cd74","Cd3e","Ly6c2","Eno1"), label = T, label.size = 3, split.by = "condition")
+
+Idents(SeuratObject.combined)<-"seurat_clusters"
+FeaturePlot(object = SeuratObject.combined, features = c("Cd74","Cd3e","Ly6c2","Eno1"), label = T, label.size = 3, )
+FeaturePlot(object = SeuratObject.combined, features = c("Ly6g","Vcan", "Elane","Ctsg"), label = T, label.size = 3, )
+FeaturePlot(object = RecrutedMacrophages, features = c("Angptl4"), label = T, label.size = 3, )
+
+VlnPlot(object = SeuratObject.combined, features = c("Cd74","Cd3e","Ly6c2","Eno1"), split.by = "condition", pt.size = 0)
+
+table(SeuratObject.combined$condition)
+SeuratObject.combined$condition<-factor(SeuratObject.combined$condition, levels = c("Ctrl","HFpEF"))
+
+VlnPlot(SeuratObject.combined, features = c("Mrpl15", "Lypla1","Lcn2"), group.by = "condition")
+DimPlot(SeuratObject.combined, label = TRUE, split.by = "condition") + theme(legend.position = "None")
+DimPlot(SeuratObject.combined, label = TRUE, label.size = 5) + theme(legend.position = "None")
+
+
+VlnPlot(SeuratObject.combined,features = c("Plin2","Lpl","Angptl4","Trem2"), split.by = "condition", pt.size = 0)
+
+
+VlnPlot(SeuratObject.combined,features = c("Ctsb","Lgals1","Cd68","Cd36"), split.by = "condition", pt.size = 0)
+VlnPlot(SeuratObject.combined,features = c("Anxa2","Fabp4","Pld3","Lgals3"), split.by = "condition", pt.size = 0)
+VlnPlot(SeuratObject.combined,features = c("Ctsd","Plin2","Ctsl","Cd63"), split.by = "condition", pt.size = 0)
+VlnPlot(SeuratObject.combined,features = c("Lpl","Anxy1","Trem2","Nceh1"), split.by = "condition", pt.size = 0)
+VlnPlot(SeuratObject.combined,features = c("Cd9","Fabp5","Trem2","Nceh1"), split.by = "condition", pt.size = 0)
+
+Idents(Macrophages)<-"celltypes"
+table(Idents(Macrophages))
+Macrophages<-RenameIdents(Macrophages, "Recruited Macrophages"="Recr. M","Resident Macrophages(Lyve1+)"="Res. M-1","Resident Macrophages(Lyve1- MHC-II+)"="Res. M-2")
+
+VlnPlot(Macrophages,features = c("Ctsb","Lgals1","Cd68","Cd36"), split.by = "condition", pt.size = 0, ncol = 4)
+VlnPlot(Macrophages,features = c("Anxa2","Fabp4","Pld3","Lgals3"), split.by = "condition", pt.size = 0, ncol = 4)
+VlnPlot(Macrophages,features = c("Ctsd","Plin2","Ctsl","Cd63"), split.by = "condition", pt.size = 0, ncol = 4)
+VlnPlot(Macrophages,features = c("Lpl","Anxa1","Trem2","Nceh1"), split.by = "condition", pt.size = 0, ncol = 4)
+VlnPlot(Macrophages,features = c("Cd9","Fabp5","Trem2","Nceh1"), split.by = "condition", pt.size = 0, ncol = 4)
+
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+
+
+
+```{r}
+outputFolder
+
+save.image(file = paste0(outputFolder,"Cremer_HFpEF-HFrEF_David-Seurat3.RData"))
+load("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104285/Seurat3/Seurat3.RData")
+```
+
+
