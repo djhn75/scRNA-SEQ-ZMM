@@ -14,15 +14,17 @@ library(Seurat)
 require(scales)
 library(tidyr)
 library(monocle)
-
+library(ggplot2)
 
 source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
 outputFolder<-"/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284//Seurat3/"
-sink(file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284/Seurat3/Cremer_Macrophages_MI_David-Seurat3.rmd.log", append = TRUE, split = TRUE)
+sink(file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284/Seurat3/Cremer_Macrophages_MI_David-Seurat3.rmd.log", append = FALSE, split = TRUE)
 ```
 
 ```{r}
 # Quick load
+rm(SeuratObjectList, SeuratObject.combined_ClusterTree, p1.p2, tmpList, SeuratObject.anchors)
+save.image("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284//Seurat3/Cremer_Macrophages_MI_David-Seurat3.RData")
 load("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284//Seurat3/Cremer_Macrophages_MI_David-Seurat3.RData")
 ```
 
@@ -66,9 +68,9 @@ DefaultAssay(object = SeuratObject.combined) <- "integrated"
 SeuratObject.combined <- ScaleData(object = SeuratObject.combined, verbose = FALSE)
 SeuratObject.combined <- RunPCA(object = SeuratObject.combined, npcs = 30, verbose = FALSE)
 # t-SNE and Clustering
-SeuratObject.combined <- RunUMAP(object = SeuratObject.combined, reduction = "pca", dims = 1:20)
-SeuratObject.combined <- FindNeighbors(object = SeuratObject.combined, reduction = "pca", dims = 1:20)
-SeuratObject.combined <- FindClusters(SeuratObject.combined, resolution = 0.5)
+SeuratObject.combined <- RunUMAP(object = SeuratObject.combined, reduction = "pca", dims = 1:10)
+SeuratObject.combined <- FindNeighbors(object = SeuratObject.combined, reduction = "pca", dims = 1:10)
+SeuratObject.combined <- FindClusters(SeuratObject.combined, resolution = 0.3)
 ```
 
 
@@ -93,6 +95,10 @@ DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE, split.
 Idents(SeuratObject.combined)<-"seurat_clusters"
 DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE, split.by = "condition", label.size = 8, pt.size = 1)
 
+```
+
+```{r}
+SeuratObject.combined$seurat_clusters<-SeuratObject.combined$integrated_snn_res.0.5
 ```
 
 
@@ -128,8 +134,45 @@ top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 3, wt =
 DotPlot(SeuratObject.combined, features = unique(top20$gene)) + theme(axis.text.x = element_text(angle = 90))
 ```
 
+```{r}
+genes_all<-data.frame(gene=rownames(SeuratObject.combined))
+```
 
 
+```{r}
+
+#genes<-c("Adgre1","Vcam1","Car1","Car2","Siglec1","Ly6c1")
+genes<-c("H2-Ab1","Cx3cr1","Cd68","Ccr2","Mertk","Timd4","Ly6g","Itgam","S100a8","S100a9")
+
+VlnPlot(SeuratObject.combined, features = c("H2-Ab1"), group.by = "seurat_clusters", split.by = "condition", assay = "RNA", slot = "data", pt.size = 0) + theme(legend.position = "bottom")
+
+plotList<-list()
+for (i in seq_along(genes)) {
+  g<-VlnPlot(SeuratObject.combined, features = c(genes[[i]]), group.by = "seurat_clusters", split.by = "condition", assay = "RNA", slot = "data", pt.size = 0) + theme(legend.position = "bottom")
+  plotList[[i]]<-g
+
+}
+ggarrange(plotlist = plotList) + theme(legend.position = "left")
+```
+
+```{r}
+genes<-c("Adgre1","Vcam1","Car1","Car2","Siglec1","Ly6c1")
+genes<-c("H2-Ab1","Cx3cr1","Cd68","Ccr2","Mertk","Timd4","Ly6g","Itgam","S100a8","S100a9")
+
+DefaultAssay(SeuratObject.combined)<-"RNA"
+Idents(SeuratObject.combined)<-"seurat_clusters"
+plotList<-list()
+for (i in seq_along(genes)) {
+  g<-FeaturePlot(SeuratObject.combined, features = c(genes[[i]]), label.size = 4, label = T, min.cutoff = 0, slot = "data")  + theme(legend.position = "none")
+  plotList[[i]]<-g
+
+}
+ggarrange(plotlist = plotList)
+```
+
+```{r}
+VlnPlot(SeuratObject.combined, features = "H2-Ab1")
+```
 
 ```{r}
 table(subset(SeuratObject.combined.markers, cluster==c(1,2,5))$gene)
@@ -222,7 +265,7 @@ for (x in Summary.Celltypes$orig.ident) {
 }
 Summary.Celltypes$condition<-condition
 
-svg(filename = paste0(outputFolder,"/Barplot-CellsperClusterPerSample.svg"),width = 15, height = 10)
+#svg(filename = paste0(outputFolder,"/Barplot-CellsperClusterPerSample.svg"),width = 15, height = 10)
 ggplot(Summary.Celltypes, aes(x=orig.ident, y= freq, fill= condition))+
   geom_col(width = 0.9, color = "black")+
   facet_wrap(~res.0.6, nrow = 4, scales = "free")+
@@ -640,14 +683,168 @@ VlnPlot(Macrophages,features = c("Cd9","Fabp5","Trem2","Nceh1"), split.by = "con
 ```
 
 
+#Calculate DEG per Cluster
+```{r}
+library("xlsx")
+celltypes<-names(table(SeuratObject.combined$seurat_clusters))
+Idents(SeuratObject.combined)<-"seurat_clusters"
+table(SeuratObject.combined$condition)
 
+
+finalTable<-data.frame()
+for (celltype in celltypes) {
+  seurat.celltype<-subset(SeuratObject.combined, idents=c(celltype))
+  
+  Idents(seurat.celltype)<-"condition"
+  DEG_CTRL_vs_92a.celltype<-FindMarkers(seurat.celltype, ident.1 = "NO-MI", ident.2 = "MI-D3",assay = "RNA", slot = "data", logfc.threshold = 0.1, min.pct = 0.1)
+
+  pvalues<-do_cluster_t_test(seurat.celltype, DEG_CTRL_vs_92a.celltype, group="condition",cluster = "orig.ident")
+  pvalues<-data.frame(clustered.ttest=unlist(pvalues))
+
+  DEG_CTRL_vs_92a.celltype.merged<-merge(x = DEG_CTRL_vs_92a.celltype, pvalues, by = "row.names")
+  DEG_CTRL_vs_92a.celltype.merged$celltype<-celltype
+  finalTable<-rbind(finalTable,DEG_CTRL_vs_92a.celltype.merged)
+  
+}
+outputFolder
+write.csv2(finalTable, file = paste0(outputFolder,"DEG_NOMI_vs_MID3.PerCluster_logFC>0.1_minPct>0.1.csv"), row.names = F)
+write.xlsx(finalTable, file = paste0(outputFolder,"DEG_NOMI_vs_MID3.PerCluster_logFC>0.1_minPct>0.1.xlsx"), row.names = F)
+
+```
+
+#Barplot of Number of DEGs per Celltype
+```{r}
 
 
 ```{r}
 outputFolder
 
 save.image(file = paste0(outputFolder,"Cremer_HFpEF-HFrEF_David-Seurat3.RData"))
-load("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284/Seurat3/Seurat3.RData")
+load("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284/Seurat3/)
 ```
 
 
+```{r}
+
+## prepare data for cluster t.test from the deg list and do a cluster t-test
+do_cluster_t_test <- function(seurat_subset, degs, group="condition", cluster="seurat_clusters"){
+  gene_names<- names(table(rownames(degs)))
+  #print(head(gene_names))
+  p_values <- vector("list",length(gene_names))
+  names(p_values) <- gene_names
+  #gene_names <- row.names(cluster_subset)
+  #if (celltype=="Adipocytes"){
+  #  seurat_subset <- seurat_subset[,!seurat_subset$orig.ident=="D7"]
+  #}
+  group <- seurat_subset[[group]][,1]
+  cluster <- seurat_subset[[cluster]][,1]
+  for (gene in gene_names){
+    y <- c(t(as.matrix(seurat_subset@assays$RNA[gene,])))
+    test_info <- my.t.test.cluster(y, cluster, group)
+    p_values[[gene]] <- test_info[nrow(test_info)]
+  }
+  return(p_values)
+}
+
+## added line 54-56 so that each group is tested if 
+## only one ovbservation is present and throw an error
+my.t.test.cluster <- function (y, cluster, group, conf.int = 0.95) 
+{
+  group <- as.factor(group)
+  cluster <- as.factor(cluster)
+  s <- !(is.na(y) | is.na(cluster) | is.na(group))
+  y <- y[s]
+  cluster <- cluster[s]
+  group <- group[s]
+  n <- length(y)
+  if (n < 2) 
+    stop("n<2")
+  gr <- levels(group)
+  if (length(gr) != 2) 
+    stop("must have exactly two treatment groups")
+  n <- table(group)
+  nc <- tapply(cluster, group, function(x) length(unique(x)))
+  bar <- tapply(y, group, mean)
+  u <- unclass(group)
+  y1 <- y[u == 1]
+  y2 <- y[u == 2]
+  c1 <- factor(cluster[u == 1])
+  c2 <- factor(cluster[u == 2])
+  b1 <- tapply(y1, c1, mean)
+  b2 <- tapply(y2, c2, mean)
+  m1 <- table(c1)
+  m2 <- table(c2)
+  if (any(names(m1) != names(b1)))
+    stop("logic error 1")
+  if (any(names(m2) != names(b2)))
+    stop("logic error 2")
+  if (any(m2 < 2))
+    stop(paste("The following clusters contain only one observation:",
+               paste(names(m2[m2 < 2]), collapse = " ")))
+  if (any(m1 < 2))
+    stop(paste("The following clusters contain only one observation:",
+               paste(names(m1[m1 < 2]), collapse = " ")))
+  M1 <- mean(y1)
+  M2 <- mean(y2)
+  ssc1 <- sum(m1 * ((b1 - M1)^2))
+  ssc2 <- sum(m2 * ((b2 - M2)^2))
+  if (nc[1] != length(m1))
+    stop("logic error 3")
+  if (nc[2] != length(m2))
+    stop("logic error 4")
+  df.msc <- sum(nc) - 2
+  msc <- (ssc1 + ssc2)/df.msc
+  v1 <- tapply(y1, c1, var)
+  v2 <- tapply(y2, c2, var)
+  ssw1 <- sum((m1 - 1) * v1)
+  ssw2 <- sum((m2 - 1) * v2)
+  df.mse <- sum(n) - sum(nc)
+  mse <- (ssw1 + ssw2)/df.mse
+  na <- (sum(n) - (sum(m1^2)/n[1] + sum(m2^2)/n[2]))/(sum(nc) - 
+                                                        1)
+  rho <- (msc - mse)/(msc + (na - 1) * mse)
+  r <- max(rho, 0)
+  C1 <- sum(m1 * (1 + (m1 - 1) * r))/n[1]
+  C2 <- sum(m2 * (1 + (m2 - 1) * r))/n[2]
+  v <- mse * (C1/n[1] + C2/n[2])
+  v.unadj <- mse * (1/n[1] + 1/n[2])
+  de <- v/v.unadj
+  dif <- diff(bar)
+  se <- sqrt(v)
+  zcrit <- qnorm((1 + conf.int)/2)
+  cl <- c(dif - zcrit * se, dif + zcrit * se)
+  z <- dif/se
+  P <- 2 * pnorm(-abs(z))
+  stats <- matrix(NA, nrow = 20, ncol = 2, dimnames = list(c("N", 
+                                                             "Clusters", "Mean", "SS among clusters within groups", 
+                                                             "SS within clusters within groups", "MS among clusters within groups", 
+                                                             "d.f.", "MS within clusters within groups", "d.f.", "Na", 
+                                                             "Intracluster correlation", "Variance Correction Factor", 
+                                                             "Variance of effect", "Variance without cluster adjustment", 
+                                                             "Design Effect", "Effect (Difference in Means)", "S.E. of Effect", 
+                                                             paste(format(conf.int), "Confidence limits"), "Z Statistic", 
+                                                             "2-sided P Value"), gr))
+  stats[1, ] <- n
+  stats[2, ] <- nc
+  stats[3, ] <- bar
+  stats[4, ] <- c(ssc1, ssc2)
+  stats[5, ] <- c(ssw1, ssw2)
+  stats[6, 1] <- msc
+  stats[7, 1] <- df.msc
+  stats[8, 1] <- mse
+  stats[9, 1] <- df.mse
+  stats[10, 1] <- na
+  stats[11, 1] <- rho
+  stats[12, ] <- c(C1, C2)
+  stats[13, 1] <- v
+  stats[14, 1] <- v.unadj
+  stats[15, 1] <- de
+  stats[16, 1] <- dif
+  stats[17, 1] <- se
+  stats[18, ] <- cl
+  stats[19, 1] <- z
+  stats[20, 1] <- P
+  attr(stats, "class") <- "t.test.cluster"
+  stats
+}
+```

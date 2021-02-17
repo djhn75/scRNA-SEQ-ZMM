@@ -469,5 +469,148 @@ Golga2
 ```{r}
 FeaturePlot(Heart.combined, features = c("Fsd2","2900076A07Rik"), label = T, label.size = 3)
 ```
+#Request Gui 18.01.21
+#### Plot Expresseion of Notch3, Pdgfrb and Tbx20
+```{r}
+library(ggpubr)
+install.packages("xlsx")
+library("xlsx")
+table(Heart.combined$celltypes)
+p1<-VlnPlot(Heart.combined, features=c("Notch3"), split.by = "condition", pt.size = 0.1) + theme(legend.position = "bottom", axis.title.x = element_blank())
+p2<-VlnPlot(Heart.combined, features=c( "Pdgfrb"), split.by = "condition", pt.size = 0.1)  + theme(legend.position = "bottom", axis.title.x = element_blank())
+p3<-VlnPlot(Heart.combined, features=c("Tbx20"), split.by = "condition" , pt.size = 0.1)  + theme(legend.position = "bottom", axis.title.x = element_blank())
+ggarrange(p1,p2,p3)
 
+Idents(Heart.combined)<-"orig.ident"
+avg<-AverageExpression(Heart.combined, features = c("Notch3", "Pdgfrb","Tbx20"), assays = "RNA")[[1]]
+write.xlsx2(x = avg, file = "~/Downloads/GeneExpression_allCells.xlsx")
+
+Idents(Heart.combined)<-"celltypes"
+PCs.Seurat<-subset(Heart.combined, idents = "Pericytes")
+Idents(PCs.Seurat)<-"orig.ident"
+avg<-AverageExpression(PCs.Seurat, features = c("Notch3", "Pdgfrb","Tbx20"), assays = "RNA")[[1]]
+write.xlsx2(x = avg, file = "~/Downloads/GeneExpression_PCs.xlsx")
+
+Idents(PCs.Seurat)<-"condition"
+table(Idents(PCs.Seurat))
+DEG.PCs<-FindMarkers(PCs.Seurat, features =  c("Notch3", "Pdgfrb","Tbx20"), ident.1 = "Young", ident.2 = "Old", logfc.threshold = 0)
+
+table(PCs.Seurat$condition)
+
+
+PCs.Seurat@meta.data$condition<-factor(PCs.Seurat@meta.data$condition, levels = c("Young","Old"))
+VlnPlot(PCs.Seurat, features = c("Notch3", "Pdgfrb","Tbx20"), group.by = "condition", split.by = "condition", cols = c("darkgreen","darkred"), pt.size = 0.2)
+
+write.xlsx2(x = DEG.PCs, file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/RequestGi//DEG_YoungvsOld_PCs.xlsx")
+
+
+DimPlot(Heart.combined, reduction = "tsne", label = T)
+FeaturePlot(Heart.combined,  features =  c("Notch3", "Pdgfrb"), reduction = "tsne", label = T)
+
+```
+
+```{r}
+
+DimPlot(PCs.Seurat)
+PCs.Seurat
+
+PCs.Seurat<- FindVariableFeatures(object = PCs.Seurat, assay = "RNA")
+PCs.Seurat <- RunPCA(object = PCs.Seurat, npcs = 30, verbose = FALSE)
+
+# t-SNE and Clustering
+
+PCs.Seurat <- RunUMAP(object = PCs.Seurat, reduction = "pca", dims = 1:10)
+PCs.Seurat <- RunTSNE(object = PCs.Seurat, reduction = "pca", dims = 1:10)
+PCs.Seurat <- FindNeighbors(object = PCs.Seurat, reduction = "pca", dims = 1:10)
+PCs.Seurat <- RunUMAP(PCs.Seurat, dims = 1:10)
+PCs.Seurat <- FindClusters(PCs.Seurat, resolution = 0.1)
+
+DimPlot(object = PCs.Seurat, group.by = "orig.ident")
+DimPlot(object = PCs.Seurat, group.by = "seurat_clusters", label = TRUE, label.size = 9)
+```
+
+```{r}
+PCs.Seurat.DEGs.Cluster<-FindAllMarkers(PCs.Seurat)
+tmp<-data.frame(Gene=rownames(PCs.Seurat@assays$RNA))
+FeaturePlot(PCs.Seurat, features = c("Abcc9","Kcnj8", "Rgs5","Cspg4","Pdgfrb"), pt.size = 0.1)
+FeaturePlot(Heart.combined, features = c("Abcc9","Kcnj8", "Rgs5","Cspg4","Pdgfrb"), pt.size = 0.1, label = T, label.size = 2)
+VlnPlot(Heart.combined, features = c("Abcc9", "Rgs5","Pdgfrb"), pt.size = 0.1, split.by = "orig.ident" )
+
+
+Idents(Heart.combined)<-"orig.ident"
+PCs.Seurat.avg<-AverageExpression(Heart.combined, return.seurat = TRUE)
+
+PCs.Seurat.avg<-FindVariableFeatures(PCs.Seurat.avg)
+tmp<-RunPCA(PCs.Seurat.avg, assay = "RNA", npcs = 4)
+
+DimHeatmap(tmp, )
+DimPlot(tmp, reduction = "pca", dims = c(3,4))
+
+tmp<-data.frame(t(PCs.Seurat.avg))
+tmp<-tmp[,apply(tmp, 2, var, na.rm=TRUE) != 0]
+PCs.Seurat.avg
+PCs.Seurat.pca <- prcomp(PCs.Seurat.avg, center = TRUE, scale. = T)
+
+PCs.Seurat.pca <- prcomp(tmp, center = TRUE, scale. = T)
+library(ggbiplot)
+summary(PCs.Seurat.pca)
+ggbiplot(PCs.Seurat.pca)
+
+
+Idents(object = object) <- "sample.name"
+sample.object <- AverageExpression(object = object, return.seurat = TRUE)
+
+PCAPlot()
+```
+
+
+```{r}
+
+# Counting celltypes in timepoints
+tmp<-Heart.combined@meta.data
+x<-table(tmp$orig.ident)
+y<-table(V$orig.ident)
+z<-y/x
+t.test(z[1:3], z[4:6])
+
+V<- PCs.Seurat@meta.data/value(table(tmp$orig.ident))
+table(V$orig.ident)
+V$condition<-factor(V$orig.ident)
+V$celltypes<-factor(V$seurat_clusters)
+
+Summary.Celltypes <- V %>% count(condition,celltypes,.drop = FALSE) %>% group_by(condition) %>%
+  mutate(freq = n /sum(n)) %>% complete(celltypes,fill = list(n=0,freq=0))
+
+Summary.Celltypes$celltypes <- factor(Summary.Celltypes$celltypes)
+condition<-c()
+
+#svg(filename = "/media/ATLAS_NGS_storage/Wesley/AnalysisDavid-2019/Unimputed/CD31+/Barplot-CellsperClusterPerSample.svg",width = 15, height = 10)
+ggplot(Summary.Celltypes, aes(x=condition, y= freq, fill= condition))+
+  geom_col(width = 0.9, color = "black")+
+  facet_wrap(~celltypes, nrow = 2, scales = "free")+
+  scale_y_continuous(name = "Percent per timepoint", labels = scales::percent_format())+
+  theme(panel.background = element_blank(), axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust= 1, size = 8))
+#dev.off()
+
+Idents(PCs.Seurat)<-"condition"
+table(Idents(PCs.Seurat))
+DefaultAssay(PCs.Seurat)
+tmp3<-FindMarkers(PCs.Seurat, features = c("Pdgfrb","Tbx20"), ident.1 = "Young", ident.2 = "Old", logfc.threshold = 0, test.use = "bimod")
+tmp3$gene<-rownames(tmp3)
+
+write.xlsx2(x = tmp3, file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/RequestGi/DEG_YoungvsOld_PCs.DESEQ2.xlsx")
+
+VlnPlot(PCs.Seurat, split.by = "condition", features = c("Pdgfrb", "Tbx20", "Cspg4") )
+tmp<-AverageExpression(PCs.Seurat, slot = "counts", assays = "RNA", features = "Pdgfrb")$RNA
+tmp2<-AverageExpression(PCs.Seurat, slot = "data", assays = "RNA", features = "Pdgfrb")$RNA
+
+
+```
+
+
+
+```{r}
+Dimplo  
+```
 

@@ -217,7 +217,7 @@ p2<-VlnPlot(EWAT.CD.seurat, features = "nCount_RNA", pt.size = 0.1, group.by = "
 
 ggarrange(p1,p2)
 ggarrange(VlnPlot(SWAT.CD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE),
-          VlnPlot(EWAT.HFD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE),
+          VlnPlot(SWAT.HFD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE),
           VlnPlot(EWAT.CD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE),
           VlnPlot(EWAT.HFD.seurat, features = "nCount_RNA", pt.size = 0.1, log = TRUE))
 
@@ -340,7 +340,13 @@ EWAT.CD.singlet <- subset(EWAT.CD.seurat, idents = "Singlet")
 EWAT.HFD.singlet <- subset(EWAT.HFD.seurat, idents = "Singlet")
 ```
 
+
+
+
+
 ```{r}
+
+
 SWAT.CD.singlet <- FindVariableFeatures(SWAT.CD.singlet, selection.method = "mean.var.plot")
 SWAT.CD.singlet <- ScaleData(SWAT.CD.singlet, features = VariableFeatures(SWAT.CD.singlet))
 SWAT.CD.singlet <- RunPCA(SWAT.CD.singlet, features = VariableFeatures(SWAT.CD.singlet))
@@ -412,7 +418,32 @@ EWAT.CD.singlet$condition<-paste(rep("EWAT_CD", length(colnames(EWAT.CD.singlet)
 EWAT.HFD.singlet$condition<-paste(rep("EWAT_HFD", length(colnames(EWAT.HFD.singlet))), substr(EWAT.HFD.singlet$HTO_classification,1,2))
 
 table(EWAT.CD.singlet$condition)
+```
 
+```{r}
+nExp_poi <- round(0.075*nrow(SWAT.CD.singlet@meta.data))
+SWAT.CD.singlet<-doubletFinder_v3(SWAT.CD.singlet, PCs = 1:10, pN = 0.25, pK = 0.09, nExp = nExp_poi, reuse.pANN = FALSE, sct = FALSE)
+SWAT.CD.singlet$DF.classifications<-SWAT.CD.singlet$DF.classifications_0.25_0.09_246
+
+nExp_poi <- round(0.075*nrow(SWAT.HFD.singlet@meta.data))
+SWAT.HFD.singlet<-doubletFinder_v3(SWAT.HFD.singlet, PCs = 1:10, pN = 0.25, pK = 0.09, nExp = nExp_poi, reuse.pANN = FALSE, sct = FALSE)
+SWAT.HFD.singlet$DF.classifications<-SWAT.HFD.singlet$DF.classifications_0.25_0.09_230
+
+nExp_poi <- round(0.075*nrow(EWAT.CD.singlet@meta.data))
+EWAT.CD.singlet<-doubletFinder_v3(EWAT.CD.singlet, PCs = 1:10, pN = 0.25, pK = 0.09, nExp = nExp_poi, reuse.pANN = FALSE, sct = FALSE)
+EWAT.CD.singlet$DF.classifications<-EWAT.CD.singlet$DF.classifications_0.25_0.09_190
+
+nExp_poi <- round(0.075*nrow(EWAT.HFD.singlet@meta.data))
+EWAT.HFD.singlet<-doubletFinder_v3(EWAT.HFD.singlet, PCs = 1:10, pN = 0.25, pK = 0.09, nExp = nExp_poi, reuse.pANN = FALSE, sct = FALSE)
+EWAT.HFD.singlet$DF.classifications<-EWAT.HFD.singlet$DF.classifications_0.25_0.09_448
+
+```
+
+
+
+
+
+```{r}
 AllSample.Seurat<-merge(x = SWAT.CD.singlet, y = SWAT.HFD.singlet)
 AllSample.Seurat<-merge(x = AllSample.Seurat, y = EWAT.CD.singlet)
 AllSample.Seurat<-merge(x = AllSample.Seurat, y = EWAT.HFD.singlet)
@@ -439,6 +470,8 @@ DimPlot(AllSample.Seurat, group.by = "seurat_clusters", pt.size = 2, label = T, 
 DimPlot(AllSample.Seurat, group.by = "HTO_classification", pt.size = 2, label = T, label.size = 15)
 DimPlot(AllSample.Seurat, group.by = "condition", pt.size = 2, label = T, label.size = 15)
 DimPlot(AllSample.Seurat, group.by = "sample", pt.size = 2, label = T, label.size = 15)
+DimPlot(AllSample.Seurat, group.by = "DF.classifications", pt.size = 2, label = T, label.size = 15)
+
 ggarrange(DimPlot(AllSample.Seurat, group.by = "seurat_clusters", pt.size = 2, label = T, label.size = 15),
           DimPlot(AllSample.Seurat, group.by = "repeats"),
           DimPlot(AllSample.Seurat, group.by = "condition"),
@@ -452,8 +485,10 @@ DimPlot(AllSample.Seurat, group.by = "seurat_clusters", pt.size = 2, label = T, 
 DimPlot(AllSample.Seurat, group.by = "HTO_classification", pt.size = 2, label = T, label.size = 15, reduction = "umap")
 DimPlot(AllSample.Seurat, group.by = "condition", pt.size = 2, label = T, label.size = 15, reduction = "umap")
 DimPlot(AllSample.Seurat, group.by = "sample", pt.size = 2, label = T, label.size = 15, reduction = "umap")
+DimPlot(AllSample.Seurat, group.by = "DF.classifications", pt.size = 2, label = T, label.size = 15, reduction = "umap")
+
 ggarrange(DimPlot(AllSample.Seurat, group.by = "seurat_clusters", pt.size = 2, label = T, label.size = 15, reduction = "umap"),
-          DimPlot(AllSample.Seurat, group.by = "repeats", reduction = "umap"),
+          DimPlot(AllSample.Seurat, group.by = "DF.classifications", reduction = "umap"),
           DimPlot(AllSample.Seurat, group.by = "condition", reduction = "umap"),
           DimPlot(AllSample.Seurat, group.by = "sample", reduction = "umap")
 )
@@ -898,3 +933,14 @@ top20<-top20[order(as.numeric(top20$cluster)),]
 DotPlot(SeuratObject.combined, features = unique(top20$gene)) + theme(axis.text.x = element_text(angle = 45, hjust = .8))
 DoHeatmap(object = SeuratObject.combined, features = top20$gene, disp.min = 0)
 ```
+
+#Run DoubletFinder
+```{r}
+remotes::install_github('chris-mcginnis-ucsf/DoubletFinder')
+library(DoubletFinder)
+
+AllSample.Seurat.doublet <- doubletFinder_v3(AllSample.Seurat)
+
+
+```
+
