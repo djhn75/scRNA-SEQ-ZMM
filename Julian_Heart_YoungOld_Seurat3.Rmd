@@ -12,9 +12,9 @@ df_print: paged
 #load libraries
 library(dplyr)
 library(ggpubr)
-
+library(ggplot2)
 require(scales)
-
+library(reshape2)
 library(Seurat)
 source("Import10X-HelperFunctions_SeuratV3.R")
 ```
@@ -180,12 +180,27 @@ DotPlot(Heart.combined, assay = "RNA", features = rev(unique(top20$gene))) + the
 Rename Cluster Names
 ```{r}
 Idents(Heart.combined)<-"seurat_clusters"
-Heart.combined <- RenameIdents(Heart.combined, `0` = "Cardiomiocytes", `1` = "Fibroblasts", `2` = "ECs", 
+Heart.combined <- RenameIdents(Heart.combined, `0` = "Cardiomiocites", `1` = "Fibroblasts", `2` = "ECs", 
     `3` = "Dentritic Cells", `4` = "Fibroblasts", `5` = "ECs", `6` = "Pericytes", `7` = "Dentritic Cells", `8` = "Epicardial", `9` = "Lymphatic ECs", 
-    `10` = "Cardiomiocytes", `11` = "Dentritic Cells", `12` = "ECs", `13` = "Fibroblasts/ECs",`14` = "Cardiomiocytes", 
-    `15` = "Cardiomiocytes", `16` = "SWL", `17` = "Cardiomiocytes", 
-    `18` = "Pericytes/ECs", `19` = "Dentritic Cells", `20` = "Cardiomiocytes/Fibroblasts")
+    `10` = "Cardiomiocites", `11` = "Dentritic Cells", `12` = "ECs", `13` = "Fibroblasts",`14` = "Cardiomiocites", 
+    `15` = "Cardiomiocites", `16` = "SWL", `17` = "Cardiomiocites", 
+    `18` = "Lymphatic ECs", `19` = "Dentritic Cells", `20` = "Epicardial")
+
+Heart.combined$celltypes<-Idents(Heart.combined)
 ```
+
+```{r}
+
+Idents(Heart.combined)<-"seurat_clusters"
+Heart.combined <- RenameIdents(Heart.combined, `0` = "CM", `1` = "FB", `2` = "EC", 
+    `3` = "DC", `4` = "FB", `5` = "EC", `6` = "PC", `7` = "DC", `8` = "SWL", `9` = "SWL", 
+    `10` = "CM", `11` = "DC", `12` = "", `13` = "FB",`14` = "CM", 
+    `15` = "CM", `16` = "SWL", `17` = "CM", 
+    `18` = "SWL", `19` = "DC", `20` = "SWL")
+Heart.combined$celltypes_short<-Idents(Heart.combined)
+
+```
+
 
 
 ```{r}
@@ -234,7 +249,7 @@ Heart.Pericytes <- FindClusters(Heart.Pericytes, resolution = 0.5)
 ```
 
 ```{r}
-DimPlot(Heart.Pericytes, group.by = "seurat_clusters")
+DimPlot(Heart.Pericytes, group.by = "seurat_clusters", split.by = "condition")
 DimPlot(Heart.Pericytes, group.by = "condition")
 ```
 
@@ -307,7 +322,6 @@ table(Heart.combined@meta.data$celltype)
 Epicardial<-subset(Heart.combined, ident="Epicardial")
 VlnPlot(Epicardial, features = c("Sema3a","Rtn4","Wdr17"), slot = "data", group.by = "orig.ident" )
 VlnPlot(Epicardial, features = c("Sema3a","Rtn4","Wdr17"), slot = "data", group.by = "condition" )
-
 FeaturePlot(Epicardial, features = c("Sema3a","Rtn4","Wdr17"), slot = "data", min.cutoff = 0, max.cutoff = 1, split.by = "condition")
 Idents(Epicardial)<-"condition"
 table(Epicardial@active.ident)
@@ -509,8 +523,132 @@ FeaturePlot(Heart.combined,  features =  c("Notch3", "Pdgfrb"), reduction = "tsn
 
 ```
 
+
+
+```{r}
+#-Frequencys old/Young
+#-Expression of profibrotic genes (See Fig3C)
+#-Define TBX20+ and Tbx20-
+Tbx20.classifier <- ifelse(PCs.Seurat@assays$RNA@data["Tbx20", ] == 0, "Tbx20-", "Tbx20+")
+PCs.Seurat$Tbx20 <- Tbx20.classifier
+  
+A <- data.frame(classifier = PCs.Seurat@meta.data$Tbx20)
+targets <- c("Tbx20", "Col4a1", "Col3a1", "Ctgf", "Fn1", "Vim", "Col1a1", "Postn", "Loxl1", "Tbx18", "Pdgfrb")
+
+for(i in targets){
+  A[,i] <-PCs.Seurat@assays$RNA@data[i,]
+}
+
+library(dplyr)
+library(reshape2)
+A.melt <- melt(A)
+sem <- function(x) sqrt(var(x)/length(x))
+
+A.sum <- A.melt %>% group_by(classifier, variable) %>% summarize(Mean = mean(value), SEM = sem(value))
+
+p1<-ggplot(A.sum, aes(x = classifier, y = Mean, fill = classifier))+
+  geom_col(color = "black")+
+  facet_wrap(~variable, nrow = 2)+
+  geom_errorbar(aes(ymin = Mean-SEM, ymax = Mean+SEM), width = .3)+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.ticks.x = element_blank())
+p1
+```
+
+
+#Request Gi 28.09.21
 ```{r}
 
+#1.) Featureplot of 
+c("Notch3","Cspg4","Rgs5","Abcc9", "Kcnj8")
+FeaturePlot(Heart.combined, features = c("Notch3","Cspg4","Rgs5","Abcc9", "Kcnj8"), reduction = "tsne", ncol = 2, )
+FeaturePlot(Heart.combined, features = c("Notch3","Cspg4","Rgs5","Abcc9", "Kcnj8"), reduction = "tsne", ncol = 2, label = T, min.cutoff = 1, max.cutoff = 3, raster = T)
+library(ggplot2)
+ggsave(filename = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/RequestGi/28.09.21/FeaturePlot_ggsave.png", device = "png", width = 10, height = 6)
+ggsave(filename = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/RequestGi/28.09.21/FeaturePlot_ggsave.svg", device = "svg", width = 10, height = 6)
+
+#2.)
+#-subcluster PCs
+Idents(Heart.combined)<-Heart.combined$celltypes
+Heart.combined.PC <- subset(Heart.combined, idents = c("Pericytes"))
+
+
+table(Heart.combined$celltypes_short)
+
+#Recluster Pericites
+Heart.combined.PC<- FindVariableFeatures(object = Heart.combined.PC, assay = "RNA")
+Heart.combined.PC<- RunPCA(Heart.combined.PC, npcs = 30, verbose = FALSE)
+# t-SNE and Clustering
+Heart.combined.PC <- RunUMAP(object = Heart.combined.PC, reduction = "pca", dims = 1:10)
+Heart.combined.PC <- RunTSNE(object = Heart.combined.PC, reduction = "pca", dims = 1:10)
+Heart.combined.PC <- FindNeighbors(object = Heart.combined.PC, reduction = "pca", dims = 1:10)
+Heart.combined.PC <- FindClusters(Heart.combined.PC, resolution = 0.5 )
+
+p1<-DimPlot(Heart.combined.PC, group.by = "condition")
+p2<-DimPlot(Heart.combined.PC, group.by = "Tbx20")
+p1+p2
+ggsave(filename = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/RequestGi/28.09.21/Pericytes_tbx20_OldYoung.png", device = "png", width = 10, height = 6)
+
+ggsave(filename = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/RequestGi/28.09.21/Pericytes_tbx20_OldYoung.svg", device = "svg", width = 10, height = 6)
+
+
+
+#-Frequencys old/Young
+#-Expression of profibrotic genes (See Fig3C)
+#-Define TBX20+ and Tbx20-
+Tbx20.classifier <- ifelse(Heart.combined.PC@assays$RNA@data["Tbx20", ] == 0, "Tbx20-", "Tbx20+")
+Heart.combined.PC$Tbx20 <- Tbx20.classifier
+  
+A <- data.frame(classifier = Heart.combined.PC@meta.data$Tbx20)
+targets <- c("Tbx20", "Col4a1", "Col3a1", "Ctgf", "Fn1", "Vim", "Col1a1", "Postn", "Loxl1", "Tbx18", "Pdgfrb")
+
+for(i in targets){
+  A[,i] <-Heart.combined.PC@assays$RNA@data[i,]
+}
+
+library(dplyr)
+library(reshape2)
+A.melt <- melt(A)
+sem <- function(x) sqrt(var(x)/length(x))
+
+A.sum <- A.melt %>% group_by(classifier, variable) %>% summarize(Mean = mean(value), SEM = sem(value))
+
+p1<-ggplot(A.sum, aes(x = classifier, y = Mean, fill = classifier))+
+  geom_col(color = "black")+
+  facet_wrap(~variable, nrow = 2)+
+  geom_errorbar(aes(ymin = Mean-SEM, ymax = Mean+SEM), width = .3)+
+  theme_classic()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), axis.ticks.x = element_blank())
+p1
+ggsave(filename = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/RequestGi/28.09.21/Pericytes_Barplot_tbx20_OldYoung.png", device = "png", width = 10, height = 6)
+ggsave(filename = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/RequestGi/28.09.21/Pericytes_Barplot_tbx20_OldYoung.svg", device = "svg", width = 10, height = 6)
+
+
+#Calculate DEG
+Idents(Heart.combined.PC)<-"Tbx20"
+targets.DEG <- FindMarkers(Heart.combined.PC, features = targets, ident.1 = "Tbx20-", ident.2 = "Tbx20+",logfc.threshold = 0, assay = "RNA", slot = "data", min.pct = 0)
+targets.DEG
+openxlsx::write.xlsx(x = targets.DEG,file="/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/RequestGi/28.09.21/Pericytes_Barplot_MarkerGenes_TBX20_pValues_Tbx20-_vs_Tbx20+.xlsx", row.names=TRUE)
+
+
+targets.DEG <- FindMarkers(Heart.combined.PC, ident.1 = "Tbx20-", ident.2 = "Tbx20+", assay = "RNA", slot = "data", min.pct = 0)
+targets.DEG
+
+table(Idents(Heart.combined.PC))
+```
+
+```{r}
+targets <- c("Pdgfrb","Tbx20")
+Idents(Heart.combined.PC)<-"condition"
+targets.DEG <- FindMarkers(Heart.combined.PC, features = targets, ident.1 = "Young", ident.2 = "Old",logfc.threshold = 0, assay = "RNA", slot = "data", min.pct = 0)
+targets.DEG
+```
+
+
+
+
+```{r}
+seurtat_clusters
 DimPlot(PCs.Seurat)
 PCs.Seurat
 
@@ -609,8 +747,70 @@ tmp2<-AverageExpression(PCs.Seurat, slot = "data", assays = "RNA", features = "P
 ```
 
 
-
+#Request Stefanie 
 ```{r}
-Dimplo  
+DimPlot(Heart.combined, label = T, label.size = 6) + theme(legend.position = "NONE")
+DimPlot(Heart.combined, label = T, label.size = 3, split.by = "condition") + theme(legend.position = "NONE")
+FeaturePlot(Heart.combined, features = "Sema3a", max.cutoff = 1, min.cutoff = 0, split.by = "condition")
+FeaturePlot(Heart.combined, features = "Sema3a", max.cutoff = 1, min.cutoff = 0, split.by = "condition", label = TRUE, label.size = 3)
+FeaturePlot(Heart.combined, features = "Vegfb", max.cutoff = 1, min.cutoff = 0, split.by = "condition")
+FeaturePlot(Heart.combined, features = "Vegfb", max.cutoff = 1, min.cutoff = 0, split.by = "condition", label = TRUE, label.size = 3)
+
+VlnPlot(Heart.ECs, features = "Sema3a", split.by = "condition", group.by = "seurat_clusters")
+VlnPlot(Heart.ECs, features = "Vegfb", split.by = "condition", group.by = "seurat_clusters")
+
+VlnPlot(Heart.ECs, features = "Sema3a",  group.by = "orig.ident")
+VlnPlot(Heart.ECs, features = "Vegfb", group.by = "orig.ident")
+Idents(Heart.ECs)<-"condition"
+FindMarkers(Heart.ECs, features = c("Sema3a", "Vegfb"), ident.1 = "Young",ident.2 = "Old", min.pct = 0, logfc.threshold = 0, slot = "scale.data", assay = "RNA")
+```
+```{r}
+celltypes<-names(table(Heart.combined$celltypes))
+Idents(Heart.combined)<-"celltypes"
+table(Heart.combined$condition)
+
+
+finalTable<-data.frame()
+for (celltype in celltypes) {
+  seurat.celltype<-subset(Heart.combined, idents=c(celltype))
+  
+  Idents(seurat.celltype)<-"condition"
+  DEGs<-FindMarkers(seurat.celltype, ident.1 = "Young", ident.2 = "Old",assay = "RNA", slot = "data", logfc.threshold = 0.0, min.pct = 0.0, features = c("Sema3a","Vegfb"))
+
+  pvalues<-do_cluster_t_test(seurat.celltype, DEGs, group="condition",cluster = "orig.ident")
+  pvalues<-data.frame(clustered.ttest=unlist(pvalues))
+
+  DEGs.merged<-merge(x = DEGs, pvalues, by = "row.names")
+  DEGs.merged$celltype<-celltype
+  finalTable<-rbind(finalTable,DEGs.merged)
+  
+}
+write.csv2(finalTable, file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/SEMA3A_VEGFB_DEG.AllCelltypes.csv", row.names = F)
+VlnPlot(Heart.combined, features = "Sema3a", split.by = "condition", group.by = "seurat_clusters")
+VlnPlot(Heart.combined, features = "Vegfb", split.by = "condition", group.by = "seurat_clusters")
 ```
 
+
+```{r}
+
+celltypes<-names(table(Heart.combined$celltypes))
+Idents(Heart.combined)<-"seurat_clusters"
+table(Heart.combined$condition)
+
+
+finalTable<-data.frame()
+for (celltype in celltypes) {
+  seurat.celltype<-subset(Heart.combined, idents=c(celltype))
+  
+  Idents(seurat.celltype)<-"condition"
+  DEGs<-FindMarkers(seurat.celltype, ident.1 = "Young", ident.2 = "Old",assay = "RNA", slot = "data", logfc.threshold = 0.0, min.pct = 0.0, features = c("Sema3a","Vegfb"))
+
+  pvalues<-do_cluster_t_test(seurat.celltype, DEGs, group="condition",cluster = "orig.ident")
+  pvalues<-data.frame(clustered.ttest=unlist(pvalues))
+
+  DEGs.merged<-merge(x = DEGs, pvalues, by = "row.names")
+  DEGs.merged$celltype<-celltype
+  finalTable<-rbind(finalTable,DEGs.merged)
+  
+}
+write.csv2(finalTable, file = "/media/ATLAS_NGS_storage/Julian-Wagner/scRNA-Seq_Mouse_RamonBerlin_/AnalysisDavid_Seurat3_18.11.19/SEMA3A_VEGFB_DEG.AllCelltypes.csv", row.names = F)

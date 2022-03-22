@@ -404,4 +404,3 @@ VlnPlot(Tracing.young.EndothelialCells, features.plot = "Foxj2" )
 FeaturePlot(Tracing.old.final.CCA.Monocytes, features.plot = "Elk1", min.cutoff = 0, max.cutoff = 1)
 FeaturePlot(Tracing.young.final.CCA.Monocytes, features.plot = "Elk1", min.cutoff = 0, max.cutoff = 1)
 ```
-

@@ -16,9 +16,9 @@ library(tidyr)
 library(monocle)
 
 
-source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
-outputFolder<-"/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104181/Seurat3/emptyDrops/"
-sink(file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104181/Seurat3/emptyDrops/Cremer_HFpEF-HFrEF_David-Seurat3.emptyDrops.rmd.log", append = TRUE, split = TRUE)
+source("/media/EOS_ZMM_shared/Bioinformatic/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
+outputFolder<-"/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104181/Seurat3/emptyDrops_newFilter.09.03.22/"
+sink(file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104181/Seurat3/emptyDrops_newFilter.09.03.22/Cremer_HFpEF-HFrEF_David-Seurat3.emptyDrops_newFilters.09.03.22.rmd.log", append = TRUE, split = TRUE)
 ```
 
 ```{r}
@@ -44,7 +44,7 @@ Samplenames <- c("HFpEF-1","Ctrl-1","HFpEF-2","HFpEF-3","Ctrl-2","Ctrl-3")
 ```{r}
 SeuratObjectList <- list()
 for (i in 1:length(Sample.Paths)) {
-  SeuratObjectList[[i]]<-Importer(pathway = Sample.Paths[i],id = Samplenames[i], FilterByAbsoluteValues = TRUE)[[1]]
+  SeuratObjectList[[i]]<-Importer(pathway = Sample.Paths[i],id = Samplenames[i], FilterByAbsoluteValues = TRUE, FilterCells = TRUE, minFeatures=500, maxFeatures=3000, minCounts=500, maxCounts=15000, maxMito=0.1)[[1]]
 }
 ```
 
@@ -93,7 +93,7 @@ DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE, split.
 Find Cluster specific Markers
 ```{r}
 SeuratObject.combined.markers <- FindAllMarkers(object = SeuratObject.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
-top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_log2FC)
 write.csv(top20, file = paste0(outputFolder,"top20ClusterMarkers.csv"))
 write.csv(SeuratObject.combined.markers, file = paste0(outputFolder,"ClusterMarkers.csv"))
 ```
@@ -115,6 +115,9 @@ FeaturePlot(SeuratObject.combined, features = "Ptprc")
 ```{r}
 Idents(SeuratObject.combined)<-"condition"
 VlnPlot(SeuratObject.combined, features = c("S100a8","S100a9", "Cd163"), group.by = "orig.ident")
+VlnPlot(SeuratObject.combined, features = c("Bst2"), group.by = "seurat_clusters")
+
+Bst2
 table(Idents(SeuratObject.combined))
 DEG_CTRL_HFpEF<-FindMarkers(SeuratObject.combined, ident.1 = "Ctrl", ident.2 = "HFpEF")
 ```
@@ -168,41 +171,37 @@ tmp<-data.frame(Gene=rownames(SeuratObject.combined@assays$RNA))
 
 
 
-#Rename Idents
+
+#Rename Ident
 ```{r}
 Idents(SeuratObject.combined)<-"seurat_clusters"
 table(Idents(SeuratObject.combined))
 SeuratObject.combined <- RenameIdents(SeuratObject.combined, 
-                                      `0` = "LowQC", 
-                                      `1` = "Recruited Macrophages", 
-                                      `2` = "Resident Macrophages(Lyve1+)", 
-                                      `3` = "Resident Macrophages(Lyve1- MHC-II+)", 
-                                      `4` = "Neutrophils", 
+                                      `0` = "Resident Macrophages(Lyve1+)", 
+                                      `1` = "Neutrophils", 
+                                      `2` = "Resident Macrophages(Lyve1- MHC-II+)", 
+                                      `3` = "B-Cells", 
+                                      `4` = "Recruited Macrophages", 
                                       `5` = "B-Cells", 
-                                      `6` = "B-Cells", 
+                                      `6` = "Dendritic-Cells", 
                                       `7` = "T-Cells", 
                                       `8` = "Monocytes",
                                       `9` = "T-Cells",
                                       `10` = "T-Cells", 
-                                      `11` = "Dendritic-Cells", 
-                                      `12` = "Neutrophils", 
-                                      `13` = "Dendritic-Cells2?",
-                                      `14` = "NK", 
-                                      `15` = "Monocytes", 
-                                      `16` = "Unknown/LowQC", 
-                                      `17` = "Innate Lymphoid-Cells",
-                                      `18` = "Unknown", 
-                                      `19` = "Mast-Cell", 
-                                      `20` = "Fibroblasts/LowQC", 
-                                      `21` = "Neutrophils" )
+                                      `11` = "Recruited Macrophages", 
+                                      `12` = "NK", 
+                                      `13` = "Monocytes",
+                                      `14` = "Innate Lymphoid-Cells", 
+                                      `15` = "Neutrophils", 
+                                      `16` = "Unknown", 
+                                      `17` = "Mast-Cell"
+                                       )
 
 
 SeuratObject.combined$celltypes<-Idents(SeuratObject.combined)
 
 DimPlot(SeuratObject.combined, label = T)
 ```
-
-
 
 ## 3.1.6) Barplot of cell per cluster
 ```{r fig.height=10, fig.width=15}
@@ -655,10 +654,8 @@ VlnPlot(Macrophages,features = c("Cd9","Fabp5","Trem2","Nceh1"), split.by = "con
 
 
 ```{r}
-outputFolder
+saveRDS(object = SeuratObject.combined, file = paste0(outputFolder, "SeuratObject_CTRL_HFpEF_06.03.22.Rds"))
 
-save.image(file = paste0(outputFolder,"Cremer_HFpEF-HFrEF_David-Seurat3.RData"))
-load("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104181/Seurat3/Cremer_HFpEF-HFrEF_David-Seurat3.RData")
 ```   
 
 

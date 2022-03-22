@@ -12,11 +12,12 @@ library(Seurat)
 require(scales)
 
 # Quick load
-load("/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/Brandes.RData")
+#load("/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/Brandes.RData")
 
-source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
+source("/media/EOS_ZMM_shared/Bioinformatic/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
 outputFolder<-"/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/"
-sink(file = "/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/Brandes-AnalysisDavid-Seurat3.rmd.log", append = TRUE, split = TRUE)
+sink(file = "/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/Brandes-AnalysisDavid-Seurat3_newCTRLSample.rmd.log", append = T, split = TRUE)
+
 ```
 
 
@@ -24,43 +25,18 @@ sink(file = "/media/ATLAS_NGS_storage/Brandes_Group/103640/Seurat3/Brandes-Analy
 ```{r}
 #Static Parameters 
 
-Sample.Paths <- c("/media/ATLAS_NGS_storage/Brandes_Group/103640/103640-001/outs/filtered_feature_bc_matrix",
+Sample.Paths <- c("/media/ATLAS_NGS_storage/Brandes_Group/103640/104883-003-001/outs/filtered_feature_bc_matrix/",
+  "/media/ATLAS_NGS_storage/Brandes_Group/103640/103640-001/outs/filtered_feature_bc_matrix",
 "/media/ATLAS_NGS_storage/Brandes_Group/103640/103640-002/outs/filtered_feature_bc_matrix",
 "/media/ATLAS_NGS_storage/Brandes_Group/103640/103640-003/outs/filtered_feature_bc_matrix",
 "/media/ATLAS_NGS_storage/Brandes_Group/103640/103640-004/outs/filtered_feature_bc_matrix")
-Samplenames <- c("Day0","Day3","Day7","Day14")
+Samplenames <- c("CTRL/Day0", "Day0","Day3","Day7","Day14")
 ```
 
 ```{r}
-#' Import Single cell sequencing experiments into Seurat3and perform normalisation and scale Data 
-#' @author David John
-#' @param pathways A vector of pathways to the cellrancer count output folder (contains barcodes.tsv, genes.tsv, matrix.mtx)
-#' @param ids Vector of strings that are assigned to the concordant cells
-#' @return Merged seurat object
-Importer <- function(pathway,id, TenX=TRUE, performNormalisation=TRUE, performVariableGeneDetection=TRUE) {
-  if (TenX) {
-    Matrix <- Read10X(pathway)
-  }  else{
-    Matrix <- read.table(pathway,header = TRUE,sep = ",", dec = ".", row.names = 1)
-  }
-  seuratObject =CreateSeuratObject(counts = Matrix, project = id, min.cells = 5)
-  seuratObject$sample <- id
-  tmp<-unlist(strsplit(id,split = "-"))
-  seuratObject <- subset(x = seuratObject, subset = nFeature_RNA > 500)
-  if (performNormalisation==TRUE) {
-    seuratObject<-NormalizeData(object = seuratObject,verbose = FALSE)
-    }
-  if(performVariableGeneDetection){
-    seuratObject<-FindVariableFeatures(object = seuratObject, do.plot = FALSE, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
-  }
-  #seuratObject<-ScaleData(object = seuratObject)
-  cat("Imported ", length(seuratObject@meta.data$orig.ident), " cells from ", pathway, "with ID ", id, "\n")
-  return(seuratObject)
-}
-
 SeuratObjectList <- list()
 for (i in 1:length(Sample.Paths)) {
-  SeuratObjectList[[i]]<-Importer(pathway = Sample.Paths[i],id = Samplenames[i])
+  SeuratObjectList[[i]]<-Importer(pathway = Sample.Paths[i],id = Samplenames[i], FilterCells = T, FilterByAbsoluteValues = T, performNormalisation = T, minFeatures=200, maxFeatures=6000, minCounts=500, maxCounts=15000, maxMito=0.2)[[1]]
 }
 
 
@@ -83,11 +59,11 @@ SeuratObject.combined <- FindClusters(SeuratObject.combined, resolution = 0.5)
 ```
 
 ```{r}
-save(SeuratObject.combined,file = paste0(outputFolder,"Brandes.RData"))
+save(SeuratObject.combined,file = paste0(outputFolder,"Brandes_newCTRL.RData"))
 ```
 
 ```{r}
-load(file = paste0(outputFolder,"Brandes.RData"))
+load(file = paste0(outputFolder,"Brandes_newCTRL.RData"))
 ```
 
 ## 3.1.5)generate TSNE Plots
@@ -154,8 +130,8 @@ dev.off()
 ##3.1.7. Find Cluster specific Markers
 ```{r}
 SeuratObject.combined.markers <- FindAllMarkers(object = SeuratObject.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
-top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
-write.csv(top20, file = paste0(outputFolder,"top20ClusterMarkers.csv"))
+top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_log2FC)
+write.csv(top20, file = paste0(outputFolder,"top20ClusterMarkers_newCTRL.csv"))
 top20
 
 ```

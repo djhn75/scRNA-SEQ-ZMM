@@ -18,7 +18,7 @@ library(ggplot2)
 
 source("/home/david/scRNA-SEQ-ZMM/Import10X-HelperFunctions_SeuratV3.R")
 outputFolder<-"/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284//Seurat3/"
-sink(file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284/Seurat3/Cremer_Macrophages_MI_David-Seurat3.rmd.log", append = FALSE, split = TRUE)
+sink(file = "/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284/Seurat3/Cremer_Macrophages_MI_David-Seurat3.rmd.log", append = TRUE, split = TRUE)
 ```
 
 ```{r}
@@ -70,7 +70,7 @@ SeuratObject.combined <- RunPCA(object = SeuratObject.combined, npcs = 30, verbo
 # t-SNE and Clustering
 SeuratObject.combined <- RunUMAP(object = SeuratObject.combined, reduction = "pca", dims = 1:10)
 SeuratObject.combined <- FindNeighbors(object = SeuratObject.combined, reduction = "pca", dims = 1:10)
-SeuratObject.combined <- FindClusters(SeuratObject.combined, resolution = 0.3)
+SeuratObject.combined <- FindClusters(SeuratObject.combined, resolution = 0.35)
 ```
 
 
@@ -90,7 +90,7 @@ p1<-DimPlot(object = SeuratObject.combined, reduction = "umap", group.by = "orig
 p2<-DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE,pt.size = 1, label.size = 9)
 #p3<-DimPlot(object = SeuratObject.combined, reduction = "umap", group.by = "sample",pt.size = 2)
 plot_grid(p1,p2)
-
+p1+p2
 DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE, split.by = "orig.ident")
 Idents(SeuratObject.combined)<-"seurat_clusters"
 DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE, split.by = "condition", label.size = 8, pt.size = 1)
@@ -98,14 +98,15 @@ DimPlot(object = SeuratObject.combined, reduction = "umap", label = TRUE, split.
 ```
 
 ```{r}
-SeuratObject.combined$seurat_clusters<-SeuratObject.combined$integrated_snn_res.0.5
+SeuratObject.combined$seurat_clusters<-SeuratObject.combined$integrated_snn_res.0.35
+Idents(SeuratObject.combined)<-"integrated_snn_res.0.35"
 ```
 
 
 Find Cluster specific Markers
 ```{r}
 SeuratObject.combined.markers <- FindAllMarkers(object = SeuratObject.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
-top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+top20<-SeuratObject.combined.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_log2FC)
 write.csv(top20, file = paste0(outputFolder,"top20ClusterMarkers.csv"))
 write.csv(SeuratObject.combined.markers, file = paste0(outputFolder,"ClusterMarkers.csv"))
 ```
@@ -715,14 +716,73 @@ write.xlsx(finalTable, file = paste0(outputFolder,"DEG_NOMI_vs_MID3.PerCluster_l
 #Barplot of Number of DEGs per Celltype
 ```{r}
 
+```
 
 ```{r}
 outputFolder
 
 save.image(file = paste0(outputFolder,"Cremer_HFpEF-HFrEF_David-Seurat3.RData"))
-load("/media/Helios_scStorage/Badder_Sebastian_HfPef_Model/104284/Seurat3/)
+load(paste0(outputFolder,"Cremer_HFpEF-HFrEF_David-Seurat3.RData"))
 ```
 
+
+#Volcano plot of DEG's in clusters 
+```{r}
+library(ggrepel)
+
+SeuratObject.68913<-subset(SeuratObject.combined, idents=c("6","8","9","13"))
+Idents(SeuratObject.68913)<-"condition"
+DEG.68913.MI_noMi<- FindMarkers(SeuratObject.68913, ident.1 = "NO-MI", ident.2 = "MI-D3",assay = "RNA", slot = "data", logfc.threshold = 0.1, min.pct = 0.1)
+
+VlnPlot(SeuratObject.68913, features = "Malat1")
+pvalues<-do_cluster_t_test(SeuratObject.68913, DEG.68913.MI_noMi, group="condition",cluster = "orig.ident")
+pvalues<-data.frame(clustered.ttest=unlist(pvalues))
+
+mycolors <- c("blue", "red", "black")
+names(mycolors) <- c("DOWN", "UP", "NO")
+de<-merge(x = DEG.68913.MI_noMi, pvalues, by = "row.names")
+
+```
+
+```{r}
+
+de$diffexpressed <- "NO"
+de$diffexpressed[de$avg_logFC > 0.6 & de$p_val_adj < 0.05] <- "UP"
+de$diffexpressed[de$avg_logFC < -0.6 & de$p_val_adj < 0.05] <- "DOWN"
+
+de$delabel <- NA
+#de$delabel[de$diffexpressed != "NO"] <- de$Row.names[de$diffexpressed != "NO"]
+de$delabel[de$Row.names == "Malat1"] <- de$Row.names[de$Row.names == "Malat1"]
+
+
+p<-ggplot(data=de, aes(x=avg_logFC, y=p_val_adj, col=diffexpressed, label=delabel)) + geom_point() + theme_minimal() +  geom_text_repel()
+p <- p + geom_vline(xintercept=c(-0.6, 0.6), col="red") +
+    geom_hline(yintercept=0.05, col="red")
+
+p <- p + scale_colour_manual(values = mycolors)
+p
+```
+
+
+
+```{r}
+
+de$diffexpressed <- "NO"
+de$diffexpressed[de$avg_logFC > 0.4 & de$clustered.ttest < 0.05] <- "UP"
+de$diffexpressed[de$avg_logFC < -0.4 & de$clustered.ttest < 0.05] <- "DOWN"
+
+de$delabel <- NA
+#de$delabel[de$diffexpressed != "NO"] <- de$Row.names[de$diffexpressed != "NO"]
+de$delabel[de$Row.names == "Malat1"] <- de$Row.names[de$Row.names == "Malat1"]
+
+
+p<-ggplot(data=de, aes(x=avg_logFC, y=-clustered.ttest, col=diffexpressed, label=delabel)) + geom_point() + theme_minimal() +  geom_text_repel(size=6)
+p <- p + geom_vline(xintercept=c(-0.4, 0.4), col="red", ) +
+    geom_hline(yintercept=-0.05, col="red")
+p <- p + scale_colour_manual(values = mycolors)
+
+print(p)
+```
 
 ```{r}
 
